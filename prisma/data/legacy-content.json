@@ -1,0 +1,601 @@
+{
+  "exportedAt": "2026-10-21T04:18:44.494Z",
+  "source": "FE-DVG src/data + src/lib/pages.ts",
+  "classification": "existing site content — imported as DRAFT unless --publish; see docs/DATA-MIGRATION.md",
+  "projects": [
+    {
+      "legacyKey": "capital",
+      "legacyId": "project-6",
+      "slug": "capital-square",
+      "name": "Capital Square",
+      "categories": [
+        "development",
+        "sale"
+      ],
+      "stage": "UNDER_DEVELOPMENT",
+      "sortOrder": 1,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Bên sông Hàn · Đà Nẵng",
+      "intro": "Không gian đô thị bên sông Hàn, kết nối nhịp sống trung tâm Đà Nẵng.",
+      "overview": [
+        "Capital Square nằm ở bờ Đông sông Hàn, trong khu vực kết nối các trục Trần Hưng Đạo, Ngô Quyền và Nguyễn Công Trứ. Dự án được giới thiệu theo định hướng tổ hợp đô thị, kết hợp không gian ở với thương mại và tiện ích.",
+        "Điểm nhận diện của dự án là tầm nhìn hướng sông cùng sự kết nối với khu trung tâm thành phố. Khách hàng có thể tìm hiểu từng loại căn hộ, mặt bằng và thông tin sản phẩm phù hợp với nhu cầu sử dụng."
+      ],
+      "products": [
+        "Căn hộ",
+        "Không gian thương mại",
+        "Tiện ích nội khu"
+      ],
+      "highlights": [
+        {
+          "title": "Vị trí bên sông",
+          "text": "Bờ Đông sông Hàn, kết nối khu vực cầu Sông Hàn."
+        },
+        {
+          "title": "Tổ hợp đô thị",
+          "text": "Không gian ở gắn với thương mại và các hoạt động hằng ngày."
+        },
+        {
+          "title": "Góc nhìn kiến trúc",
+          "text": "Các khối tháp tạo nên diện mạo đô thị trong phối cảnh dự án."
+        }
+      ],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://capitalsquare.vn/",
+      "coverImage": "/images/projects/capital.jpg",
+      "map": null,
+      "rentalGuide": null,
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": null,
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "symphony",
+      "legacyId": "project-7",
+      "slug": "sun-symphony-residence",
+      "name": "Sun Symphony Residence",
+      "categories": [
+        "development",
+        "sale"
+      ],
+      "stage": "UNDER_DEVELOPMENT",
+      "sortOrder": 2,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "intro": "Một tổ hợp nhiều nhịp sống bên dòng sông Hàn.",
+      "overview": [
+        "Sun Symphony Residence là tổ hợp nằm bên sông Hàn tại Đà Nẵng. Theo giới thiệu của Sun Property, dự án gồm phân khu thấp tầng The Sonata và phân khu cao tầng The Symphony.",
+        "The Sonata có nhà phố và biệt thự; The Symphony tập trung vào các sản phẩm căn hộ. Sự kết hợp này tạo nên lựa chọn đa dạng cho khách hàng muốn tìm hiểu không gian ở và sản phẩm thương mại trong cùng một quần thể."
+      ],
+      "products": [
+        "Căn hộ Studio, 1PN+1, 2PN, 3PN",
+        "Penthouse & Sky Villa",
+        "Nhà phố & biệt thự"
+      ],
+      "highlights": [
+        {
+          "title": "Hai phân khu",
+          "text": "The Sonata và The Symphony với các loại hình sản phẩm khác nhau."
+        },
+        {
+          "title": "Bên dòng sông Hàn",
+          "text": "Vị trí kết nối không gian cảnh quan ven sông với đô thị."
+        },
+        {
+          "title": "Sản phẩm đa dạng",
+          "text": "Từ căn hộ đến nhà phố, biệt thự và sản phẩm thương mại."
+        }
+      ],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://sunpropertygroup.vn/en/projects/sun-symphony-residence-9528",
+      "coverImage": "/images/projects/symphony.jpg",
+      "map": null,
+      "rentalGuide": null,
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": null,
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "cora",
+      "legacyId": "project-8",
+      "slug": "cora-tower",
+      "name": "Cora Tower",
+      "categories": [
+        "development",
+        "sale"
+      ],
+      "stage": "UNDER_DEVELOPMENT",
+      "sortOrder": 3,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Nam Hòa Xuân · Đà Nẵng",
+      "intro": "Dấu ấn kiến trúc giữa khu đô thị Nam Hòa Xuân.",
+      "overview": [
+        "Cora Tower là dự án căn hộ của Sun Group tại khu đô thị Nam Hòa Xuân, Đà Nẵng. Kiến trúc được giới thiệu với cảm hứng “Song Lân Chầu Nhật”, tạo nên hình ảnh hai khối tháp có sự liên kết.",
+        "Danh mục sản phẩm được Sun Property công bố gồm Studio, căn hộ 1 phòng ngủ, 1 phòng ngủ cộng, 2 và 3 phòng ngủ, Penthouse cùng Shophouse khối đế. Mỗi loại hình đáp ứng một cách sử dụng không gian khác nhau."
+      ],
+      "products": [
+        "Studio, 1PN & 1PN+1",
+        "Căn hộ 2PN & 3PN",
+        "Penthouse & Shophouse"
+      ],
+      "highlights": [
+        {
+          "title": "Nam Hòa Xuân",
+          "text": "Nằm trong không gian quy hoạch của khu đô thị phía Nam Đà Nẵng."
+        },
+        {
+          "title": "Kiến trúc hai tháp",
+          "text": "Hình khối lấy cảm hứng từ hình tượng Song Lân Chầu Nhật."
+        },
+        {
+          "title": "Nhiều lựa chọn",
+          "text": "Danh mục căn hộ và không gian thương mại tại khối đế."
+        }
+      ],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://sunpropertygroup.vn/projects/cora-tower-9556",
+      "coverImage": "/images/projects/cora.jpg",
+      "map": null,
+      "rentalGuide": null,
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": null,
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "monarchy",
+      "legacyId": "project-3",
+      "slug": "monarchy-apartments",
+      "name": "The Monarchy",
+      "categories": [
+        "operation",
+        "rent",
+        "sale"
+      ],
+      "stage": "OPERATING",
+      "sortOrder": 4,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "intro": "Căn hộ bên bờ Đông sông Hàn, trong nhịp sống đô thị Đà Nẵng.",
+      "overview": [
+        "Monarchy nằm trên trục Trần Hưng Đạo, thuộc khu vực bờ Đông sông Hàn. Danh mục vận hành tại đây được tổ chức theo nhu cầu mua bán, tìm thuê và ký gửi của chủ sở hữu."
+      ],
+      "products": [
+        "Mua bán căn hộ",
+        "Thuê & cho thuê",
+        "Ký gửi tài sản"
+      ],
+      "highlights": [],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://monarchydanang.com.vn/gioi-thieu/",
+      "coverImage": "/images/projects/monarchy.jpg",
+      "map": {
+        "url": "https://maps.app.goo.gl/p7nJ78qqGhvqEweS7",
+        "label": "Căn Hộ Monarchy Đà Nẵng · Đất Vàng Group",
+        "lat": 16.0548413,
+        "lng": 108.2329786
+      },
+      "rentalGuide": {
+        "intro": "Khám phá căn hộ cho thuê Monarchy tại Đà Nẵng. So sánh diện tích, số phòng ngủ và nội thất, sau đó trao đổi trực tiếp với Đất Vàng Group để xác nhận căn phù hợp và lịch xem.",
+        "focus": "Thuê căn hộ Monarchy: chọn theo nhu cầu sống",
+        "checks": [
+          "Xác nhận block, tầng và hướng nhìn của đúng căn cần thuê.",
+          "Kiểm tra nội thất bàn giao, ban công và ánh sáng khi xem trực tiếp.",
+          "Hỏi rõ phí quản lý, chỗ đỗ xe và thời điểm có thể nhận nhà."
+        ]
+      },
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": "Google Maps links supplied by the company (FE project-locations.ts)",
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "ponte",
+      "legacyId": "project-1",
+      "slug": "sun-ponte-residence",
+      "name": "Sun Ponte Residence",
+      "categories": [
+        "operation",
+        "rent",
+        "sale"
+      ],
+      "stage": "OPERATING",
+      "sortOrder": 5,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "intro": "Kết nối không gian sống với những cây cầu biểu tượng của Đà Nẵng.",
+      "overview": [
+        "Sun Ponte Residence nằm trên đường Trần Hưng Đạo, gồm phân khu cao tầng The Ponte và phân khu thấp tầng The Rio. Khách hàng có thể chọn nhu cầu mua bán, thuê hoặc ký gửi để tiếp tục tìm hiểu sản phẩm tại dự án."
+      ],
+      "products": [
+        "Mua bán căn hộ",
+        "Thuê & cho thuê",
+        "Ký gửi tài sản"
+      ],
+      "highlights": [],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://sunpropertygroup.vn/en/projects/sun-ponte-residence-9554",
+      "coverImage": "/images/projects/ponte.jpg",
+      "map": {
+        "url": "https://maps.app.goo.gl/qkp75Kg1P8nbW5uk9",
+        "label": "Căn Hộ Ponte Residence · Đất Vàng Group",
+        "lat": 16.0581693,
+        "lng": 108.2307594
+      },
+      "rentalGuide": {
+        "intro": "Khám phá lựa chọn thuê căn hộ Sun Ponte Residence tại Đà Nẵng. Tìm theo số phòng, diện tích và ngân sách; gọi trực tiếp để kiểm tra thông tin căn và lịch xem với Đất Vàng Group.",
+        "focus": "Sun Ponte Residence: xem đúng căn, hiểu đúng nhu cầu",
+        "checks": [
+          "Xác nhận hiện trạng và thời điểm sẵn sàng của căn được giới thiệu.",
+          "So sánh mặt bằng sử dụng, tầng và hướng nhìn thực tế.",
+          "Thống nhất danh mục nội thất, tiền cọc và cách thanh toán trước khi quyết định."
+        ]
+      },
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": "Google Maps links supplied by the company (FE project-locations.ts)",
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "panoma",
+      "legacyId": "project-2",
+      "slug": "sun-panoma",
+      "name": "Sun Panoma",
+      "categories": [
+        "operation",
+        "rent",
+        "sale"
+      ],
+      "stage": "OPERATING",
+      "sortOrder": 6,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "intro": "Không gian căn hộ thuộc quần thể Sun Cosmo Residence.",
+      "overview": [
+        "Sun Panoma là tên gọi được sử dụng cho phân khu The Panoma thuộc Sun Cosmo Residence tại Đà Nẵng. Đất Vàng tổ chức thông tin theo từng nhu cầu để khách hàng dễ tìm hiểu căn hộ và chủ sở hữu thuận tiện trao đổi việc ký gửi."
+      ],
+      "products": [
+        "Mua bán căn hộ",
+        "Thuê & cho thuê",
+        "Ký gửi tài sản"
+      ],
+      "highlights": [],
+      "imageCredit": "Phối cảnh dự án",
+      "sourceUrl": "https://sunpropertygroup.vn/projects/sun-cosmo-residence-9549",
+      "coverImage": "/images/projects/panoma.jpg",
+      "map": {
+        "url": "https://maps.app.goo.gl/9z4BBFMd3ovgpS5y5",
+        "label": "Đất Vàng Group · The Panoma Đà Nẵng",
+        "lat": 16.0524094,
+        "lng": 108.236731
+      },
+      "rentalGuide": {
+        "intro": "Tìm hiểu căn hộ cho thuê tại Sun Panoma, thuộc Sun Cosmo Residence Đà Nẵng. Xem cách bố trí không gian và trao đổi nhu cầu thuê, ngân sách cùng đội ngũ Đất Vàng Group.",
+        "focus": "Thuê Sun Panoma: làm rõ thông tin bàn giao",
+        "checks": [
+          "Đối chiếu vị trí tòa và mã căn với thông tin được giới thiệu.",
+          "Xác nhận tình trạng nội thất và các thiết bị đã lắp đặt.",
+          "Trao đổi ngày bàn giao, thời hạn thuê và những khoản phí riêng."
+        ]
+      },
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": "Google Maps links supplied by the company (FE project-locations.ts)",
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "sam",
+      "legacyId": "project-4",
+      "slug": "sam-tower",
+      "name": "Sam Tower",
+      "categories": [
+        "operation",
+        "rent",
+        "sale"
+      ],
+      "stage": "OPERATING",
+      "sortOrder": 7,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "intro": "Không gian cao tầng trên trục Như Nguyệt bên sông Hàn.",
+      "overview": [
+        "Sam Tower tọa lạc trên đường Như Nguyệt tại Đà Nẵng. Khách hàng và chủ sở hữu có thể trao đổi về căn hộ cần mua, thuê hoặc ký gửi trong danh mục vận hành."
+      ],
+      "products": [
+        "Mua bán căn hộ",
+        "Thuê & cho thuê",
+        "Ký gửi tài sản"
+      ],
+      "highlights": [],
+      "imageCredit": "Ảnh thực tế",
+      "sourceUrl": "https://samtowers.com.vn/",
+      "coverImage": "/images/projects/sam.jpg",
+      "map": null,
+      "rentalGuide": {
+        "intro": "Tìm hiểu căn hộ cho thuê Sam Tower tại khu vực Như Nguyệt, Đà Nẵng. Xem thông số và nội thất, kết nối Đất Vàng Group để trao đổi nhu cầu và kiểm tra lựa chọn phù hợp.",
+        "focus": "Thuê Sam Tower: ưu tiên sự thuận tiện mỗi ngày",
+        "checks": [
+          "Xem hướng căn hộ và khả năng đón sáng ở thời điểm bạn thường ở nhà.",
+          "Kiểm tra bố trí bếp, thiết bị sinh hoạt và không gian làm việc.",
+          "Hỏi về chỗ đỗ xe, đăng ký cư dân và chi phí sử dụng hàng tháng."
+        ]
+      },
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": null,
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    },
+    {
+      "legacyKey": "hiyori",
+      "legacyId": "project-5",
+      "slug": "hiyori-garden-tower",
+      "name": "Hiyori Garden Tower",
+      "categories": [
+        "operation",
+        "rent",
+        "sale"
+      ],
+      "stage": "OPERATING",
+      "sortOrder": 8,
+      "propertyKind": "Căn hộ & bất động sản",
+      "location": "Võ Văn Kiệt · Đà Nẵng",
+      "intro": "Điểm kết nối trên trục Võ Văn Kiệt, Đà Nẵng.",
+      "overview": [
+        "Hiyori Garden Tower nằm trên đường Võ Văn Kiệt tại Đà Nẵng. Trang dự án tập hợp nhu cầu thuê, mua bán và ký gửi, giúp khách hàng tiếp cận thông tin căn hộ trước khi liên hệ xem thực tế."
+      ],
+      "products": [
+        "Mua bán căn hộ",
+        "Thuê & cho thuê",
+        "Ký gửi tài sản"
+      ],
+      "highlights": [],
+      "imageCredit": "Ảnh thực tế",
+      "sourceUrl": "https://hiyorigardentower.com/vi/",
+      "coverImage": "/images/projects/hiyori.jpg",
+      "map": null,
+      "rentalGuide": {
+        "intro": "Khám phá căn hộ cho thuê Hiyori Garden Tower trên trục Võ Văn Kiệt, Đà Nẵng. So sánh không gian, nội thất và ngân sách trước khi liên hệ Đất Vàng Group để hẹn xem.",
+        "focus": "Hiyori Garden Tower: chọn căn phù hợp nhịp sống",
+        "checks": [
+          "Trao đổi số người ở, nhu cầu phòng ngủ và thời gian dự kiến thuê.",
+          "Kiểm tra độ thoáng, tiếng ồn và nội thất trong buổi xem căn hộ.",
+          "Làm rõ quy định sử dụng tiện ích và phí ngoài tiền thuê."
+        ]
+      },
+      "provenance": {
+        "identity": "public information with source URL (FE home-projects.ts) — needs business confirmation",
+        "text": "editorial copy written for the demo — needs business review",
+        "map": null,
+        "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
+      }
+    }
+  ],
+  "pages": [
+    {
+      "path": "gioi-thieu",
+      "title": "Kiến tạo giá trị. Gắn kết tương lai.",
+      "eyebrow": "CÂU CHUYỆN ĐẤT VÀNG",
+      "intro": "Đất Vàng Group hoạt động trong lĩnh vực quản lý, vận hành và khai thác bất động sản tại Đà Nẵng. Chúng tôi chú trọng sự rõ ràng trong công việc và mối quan hệ lâu dài với chủ sở hữu, khách hàng và đối tác.",
+      "sections": [
+        {
+          "heading": "Bắt đầu từ một không gian phù hợp",
+          "body": "Chúng tôi tin rằng giá trị của bất động sản không chỉ nằm ở vị trí hay diện tích, mà còn ở cách không gian đáp ứng cuộc sống mỗi ngày. Lắng nghe là điểm khởi đầu để hiểu nhu cầu của người thuê và mong muốn của chủ sở hữu."
+        },
+        {
+          "heading": "Đồng hành qua từng giai đoạn",
+          "body": "Từ giới thiệu căn hộ đến hỗ trợ quản lý và khai thác, định hướng của Đất Vàng Group là xây dựng quy trình rõ ràng, có đầu mối trao đổi và có sự theo dõi trong suốt hành trình."
+        },
+        {
+          "heading": "Sự tử tế trong từng kết nối",
+          "body": "Một mối quan hệ bền vững cần sự minh bạch và tôn trọng. Chúng tôi ưu tiên trao đổi đầy đủ về nhu cầu, điều kiện và phạm vi công việc trước khi đề xuất phương án."
+        }
+      ]
+    },
+    {
+      "path": "gioi-thieu/tam-nhin-su-menh",
+      "title": "Tầm nhìn dài hạn. Giá trị từ hôm nay.",
+      "eyebrow": "TẦM NHÌN & SỨ MỆNH",
+      "intro": "Định hướng thương hiệu minh họa: trở thành người đồng hành đáng tin cậy trong hành trình tìm kiếm, sử dụng và chăm sóc bất động sản.",
+      "sections": [
+        {
+          "heading": "Tầm nhìn",
+          "body": "Góp phần tạo nên những không gian sống có chất lượng, nơi người sử dụng cảm thấy an tâm và chủ sở hữu có thể hiểu rõ cách tài sản được chăm sóc."
+        },
+        {
+          "heading": "Sứ mệnh",
+          "body": "Kết nối nhu cầu thực tế với phương án phù hợp, thông qua tư vấn có trách nhiệm và quy trình phối hợp minh bạch."
+        },
+        {
+          "heading": "Giá trị cốt lõi",
+          "body": "Tận tâm trong giao tiếp, rõ ràng trong công việc, tôn trọng cam kết và sẵn sàng học hỏi từ phản hồi của khách hàng."
+        }
+      ]
+    },
+    {
+      "path": "gioi-thieu/doi-ngu",
+      "title": "Con người phía sau những kết nối.",
+      "eyebrow": "ĐỘI NGŨ",
+      "intro": "Mô hình tổ chức dưới đây là minh họa cho bản demo, không phải hồ sơ nhân sự thực tế của doanh nghiệp.",
+      "sections": [
+        {
+          "heading": "Nhóm tư vấn không gian sống",
+          "body": "Tiếp nhận nhu cầu, giới thiệu lựa chọn phù hợp và hỗ trợ người thuê chuẩn bị các câu hỏi trước khi xem căn hộ."
+        },
+        {
+          "heading": "Nhóm vận hành bất động sản",
+          "body": "Theo dõi hiện trạng, ghi nhận yêu cầu bảo trì và phối hợp với các đơn vị liên quan theo phạm vi đã thống nhất."
+        },
+        {
+          "heading": "Nhóm đối tác & chăm sóc khách hàng",
+          "body": "Duy trì trao đổi định kỳ, tiếp nhận phản hồi và cùng chủ sở hữu xem xét những cải thiện trong quá trình sử dụng."
+        }
+      ]
+    },
+    {
+      "path": "gioi-thieu/doi-tac",
+      "title": "Cùng nhau tạo nên giá trị.",
+      "eyebrow": "KẾT NỐI ĐỐI TÁC",
+      "intro": "Chúng tôi chào đón trao đổi với các đơn vị kiến trúc, nội thất và vận hành có cùng định hướng về trải nghiệm không gian sống. Chưa có đối tác thực tế được xác nhận trong bản demo.",
+      "sections": [
+        {
+          "heading": "Kiến trúc & thiết kế",
+          "body": "Hợp tác xây dựng phương án không gian phù hợp với công năng, thói quen sử dụng và ngân sách của chủ sở hữu."
+        },
+        {
+          "heading": "Nội thất & tiện ích",
+          "body": "Trao đổi về vật liệu, thiết bị và khả năng bảo trì để cân bằng thẩm mỹ với hiệu quả sử dụng lâu dài."
+        },
+        {
+          "heading": "Vận hành & chăm sóc",
+          "body": "Cùng xác định đầu mối phối hợp, thời gian xử lý và cách ghi nhận công việc rõ ràng."
+        }
+      ]
+    },
+    {
+      "path": "hop-tac-chu-so-huu",
+      "title": "Tài sản của bạn. Sự đồng hành của chúng tôi.",
+      "eyebrow": "DÀNH CHO CHỦ SỞ HỮU",
+      "intro": "Mỗi căn hộ có đặc điểm riêng, mỗi chủ sở hữu có một mục tiêu khác nhau. Hãy bắt đầu bằng một cuộc trao đổi để tìm ra cách phối hợp phù hợp.",
+      "sections": [
+        {
+          "heading": "Hiểu tài sản trước khi đề xuất",
+          "body": "Ghi nhận vị trí, công năng, hiện trạng và kế hoạch sử dụng. Các thông tin này là cơ sở để cùng xem xét phương án khai thác."
+        },
+        {
+          "heading": "Thống nhất phạm vi minh bạch",
+          "body": "Làm rõ các công việc dự kiến: giới thiệu căn hộ, phối hợp bàn giao, theo dõi bảo trì và báo cáo. Chi phí, thời hạn và trách nhiệm cần được thống nhất riêng."
+        },
+        {
+          "heading": "Theo dõi và điều chỉnh",
+          "body": "Duy trì trao đổi dựa trên tình hình sử dụng thực tế. Bản demo không đưa ra cam kết lợi nhuận, tỷ lệ lấp đầy hoặc mức giá cho thuê."
+        }
+      ]
+    },
+    {
+      "path": "lien-he",
+      "title": "Mọi kết nối tốt đẹp bắt đầu từ lắng nghe.",
+      "eyebrow": "LIÊN HỆ",
+      "intro": "Bạn cần hỗ trợ quản lý bất động sản hoặc muốn trao đổi về hợp tác? Hãy để lại nội dung để bắt đầu cuộc trò chuyện. Biểu mẫu hiện chỉ lưu thông tin trên trình duyệt.",
+      "sections": [
+        {
+          "heading": "Kết nối tại Đà Nẵng",
+          "body": "Địa chỉ văn phòng, số điện thoại và tài khoản mạng xã hội chính thức sẽ được cập nhật khi có thông tin xác minh."
+        },
+        {
+          "heading": "Bạn muốn trao đổi điều gì?",
+          "body": "Hãy chia sẻ mục tiêu hợp tác, loại tài sản, khu vực và phạm vi hỗ trợ bạn cần. Thông tin này giúp định hướng cuộc trao đổi cụ thể hơn."
+        }
+      ]
+    },
+    {
+      "path": "tuyen-dung",
+      "title": "Cùng xây dựng những trải nghiệm tốt hơn.",
+      "eyebrow": "CƠ HỘI NGHỀ NGHIỆP",
+      "intro": "Trang giới thiệu tuyển dụng minh họa. Chưa có vị trí tuyển dụng thực tế được xác nhận; thông tin đăng ký chỉ lưu trên trình duyệt.",
+      "sections": [
+        {
+          "heading": "Tư vấn viên bất động sản · Vị trí demo",
+          "body": "Công việc minh họa: lắng nghe nhu cầu, chuẩn bị thông tin căn hộ và phối hợp lịch xem nhà. Phù hợp với người giao tiếp rõ ràng và có tinh thần hỗ trợ."
+        },
+        {
+          "heading": "Chuyên viên vận hành · Vị trí demo",
+          "body": "Công việc minh họa: cập nhật hiện trạng, theo dõi yêu cầu và phối hợp với đơn vị bảo trì. Chú trọng khả năng tổ chức và sự cẩn thận."
+        },
+        {
+          "heading": "Cách thể hiện sự quan tâm",
+          "body": "Điền thông tin cơ bản và mô tả kinh nghiệm trong biểu mẫu. Không cần tải tài liệu cá nhân hoặc hồ sơ nhạy cảm lên bản demo."
+        }
+      ]
+    },
+    {
+      "path": "chinh-sach-bao-mat",
+      "title": "Thông tin của bạn trong bản demo.",
+      "eyebrow": "CHÍNH SÁCH BẢO MẬT",
+      "intro": "Chính sách này mô tả hành vi thực tế của frontend demo, không thay thế chính sách pháp lý của một dịch vụ thương mại.",
+      "sections": [
+        {
+          "heading": "Dữ liệu được lưu ở đâu?",
+          "body": "Biểu mẫu lưu họ tên, email, số điện thoại và nội dung trao đổi vào localStorage của trình duyệt. Dữ liệu không được gửi đến backend hoặc hộp thư của doanh nghiệp. Mục yêu thích và cấu hình demo cũng được lưu tại đây."
+        },
+        {
+          "heading": "Ai có thể xem?",
+          "body": "Người sử dụng cùng hồ sơ trình duyệt có thể xem dữ liệu qua trang quản trị demo. Trang quản trị không có xác thực; không nhập dữ liệu nhạy cảm hoặc dữ liệu thực của bên thứ ba."
+        },
+        {
+          "heading": "Cách xóa dữ liệu",
+          "body": "Vào Quản trị demo → Cài đặt → Khôi phục dữ liệu, hoặc xóa dữ liệu website trong trình duyệt. Việc khôi phục chỉ tác động các khóa dvg: của ứng dụng."
+        },
+        {
+          "heading": "Tài nguyên bên ngoài",
+          "body": "Ảnh minh họa được tải từ Unsplash qua cơ chế tối ưu ảnh Next.js. Không tích hợp công cụ quảng cáo, thanh toán hoặc phân tích hành vi trong bản demo."
+        }
+      ]
+    },
+    {
+      "path": "dieu-khoan-su-dung",
+      "title": "Trải nghiệm có thông tin, lựa chọn có cơ sở.",
+      "eyebrow": "ĐIỀU KHOẢN SỬ DỤNG",
+      "intro": "Website là bản trình diễn giao diện. Nội dung không cấu thành lời chào bán, đề nghị cho thuê hoặc tư vấn đầu tư dành cho một giao dịch cụ thể.",
+      "sections": [
+        {
+          "heading": "Phạm vi sử dụng",
+          "body": "Các dự án, căn hộ, tình trạng còn trống và mức giá đều là dữ liệu mẫu. Ảnh minh họa không xác nhận hình ảnh của dự án hoặc căn hộ được nêu tên."
+        },
+        {
+          "heading": "Không thực hiện giao dịch",
+          "body": "Website không thu tiền, giữ chỗ hoặc ký hợp đồng. Biểu mẫu không gửi yêu cầu thực tế tới doanh nghiệp."
+        },
+        {
+          "heading": "Thông tin cần xác minh",
+          "body": "Trước một giao dịch thực tế, cần xác minh trực tiếp về pháp lý, tình trạng tài sản, chi phí và điều kiện hợp đồng qua các bên có thẩm quyền."
+        },
+        {
+          "heading": "Cập nhật bản demo",
+          "body": "Dữ liệu có thể được khôi phục về trạng thái mặc định trong phần quản trị. Các thay đổi chỉ có hiệu lực tại trình duyệt đang sử dụng."
+        }
+      ]
+    }
+  ],
+  "banners": [
+    {
+      "label": "KHÔNG GIAN & KIẾN TRÚC",
+      "title": "Kiến trúc hòa cùng thiên nhiên",
+      "description": "Hình ảnh minh họa",
+      "imageUrl": "/images/img1.png",
+      "imageAlt": "Kiến trúc hòa cùng thiên nhiên — hình ảnh minh họa",
+      "sortOrder": 1
+    },
+    {
+      "label": "CẢM HỨNG PHÁT TRIỂN",
+      "title": "Góc nhìn về những không gian sống",
+      "description": "Hình ảnh minh họa",
+      "imageUrl": "/images/img2.png",
+      "imageAlt": "Góc nhìn về những không gian sống — hình ảnh minh họa",
+      "sortOrder": 2
+    },
+    {
+      "label": "TRẢI NGHIỆM & VẬN HÀNH",
+      "title": "Chăm chút giá trị từ mỗi không gian",
+      "description": "Hình ảnh minh họa",
+      "imageUrl": "/images/heroooo.png",
+      "imageAlt": "Chăm chút giá trị từ mỗi không gian — hình ảnh minh họa",
+      "sortOrder": 3
+    }
+  ]
+}

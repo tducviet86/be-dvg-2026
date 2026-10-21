@@ -1,0 +1,597 @@
+// Đất Vàng Group — production schema (PostgreSQL, Prisma ORM 7).
+// Conventions: UUID ids, snake_case tables/columns, money as BigInt VND,
+// areas as Decimal, soft delete via deleted_at on editorial entities.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Shared enums ─────────────────────────────
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaStorage {
+  S3
+  LOCAL
+  EXTERNAL // legacy files already served by the frontend (/images/...)
+}
+
+// ─────────────────────────── Users & access ─────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id               String     @id @default(uuid()) @db.Uuid
+  email            String     @unique // stored lower-cased
+  name             String
+  passwordHash     String     @map("password_hash")
+  status           UserStatus @default(ACTIVE)
+  failedLoginCount Int        @default(0) @map("failed_login_count")
+  lockedUntil      DateTime?  @map("locked_until")
+  lastLoginAt      DateTime?  @map("last_login_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  roles         UserRole[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  assignedLeads Lead[]       @relation("LeadAssignee")
+  uploads       MediaAsset[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique // admin, editor, sales
+  name        String
+  description String?
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id    String           @id @default(uuid()) @db.Uuid
+  code  String           @unique // e.g. projects:write
+  name  String
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// Refresh-token session. Tokens are rotated on every refresh; reuse of a
+/// rotated token revokes the whole family (token theft detection).
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  familyId         String    @map("family_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  rotatedAt        DateTime? @map("rotated_at")
+  userAgent        String?   @map("user_agent")
+  ip               String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String // e.g. project.update, auth.login_failed
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  changes    Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────── Media ─────────────────────────────────
+
+model MediaAsset {
+  id          String       @id @default(uuid()) @db.Uuid
+  storage     MediaStorage
+  key         String       @unique // object key or legacy path
+  url         String // public URL served to clients
+  mimeType    String       @map("mime_type")
+  sizeBytes   Int          @default(0) @map("size_bytes")
+  width       Int?
+  height      Int?
+  alt         String?
+  checksum    String? // sha256 of stored bytes
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  projectCovers   Project[]       @relation("ProjectCover")
+  projectImages   ProjectImage[]
+  propertyCovers  Property[]      @relation("PropertyCover")
+  propertyImages  PropertyImage[]
+  bannerDesktop   Banner[]        @relation("BannerImage")
+  bannerMobile    Banner[]        @relation("BannerMobileImage")
+  postCovers      BlogPost[]      @relation("PostCover")
+
+  @@index([createdAt])
+  @@map("media_assets")
+}
+
+// ─────────────────────────────── Projects ───────────────────────────────
+
+/// Overlapping classifications: development, operation, sale, rent.
+model ProjectCategory {
+  id        String                   @id @default(uuid()) @db.Uuid
+  code      String                   @unique
+  name      String
+  sortOrder Int                      @default(0) @map("sort_order")
+  projects  ProjectCategoryOnProject[]
+
+  @@map("project_categories")
+}
+
+model ProjectCategoryOnProject {
+  projectId  String          @map("project_id") @db.Uuid
+  categoryId String          @map("category_id") @db.Uuid
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category   ProjectCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, categoryId])
+  @@index([categoryId])
+  @@map("project_category_links")
+}
+
+/// Business lifecycle (independent from publication).
+enum ProjectStage {
+  UPCOMING
+  UNDER_DEVELOPMENT
+  OPERATING
+  PAUSED
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  slug           String        @unique
+  legacyKey      String?       @unique @map("legacy_key") // FE short id, e.g. "capital"
+  name           String
+  stage          ProjectStage  @default(UNDER_DEVELOPMENT)
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at")
+  propertyKind   String?       @map("property_kind") // "Căn hộ & bất động sản"
+  location       String // short area label
+  address        String?
+  intro          String // short description (cards, meta fallback)
+  overview       String[]      @default([]) // long-form paragraphs
+  products       String[]      @default([])
+  developer      String?
+  companyRole    String?       @map("company_role")
+  legalStatus    String?       @map("legal_status")
+  totalAreaM2    Decimal?      @map("total_area_m2") @db.Decimal(14, 2)
+  totalUnits     Int?          @map("total_units")
+  startDate      DateTime?     @map("start_date") @db.Date
+  handoverDate   DateTime?     @map("handover_date") @db.Date
+  mapUrl         String?       @map("map_url")
+  mapLabel       String?       @map("map_label")
+  latitude       Decimal?      @db.Decimal(10, 7)
+  longitude      Decimal?      @db.Decimal(10, 7)
+  coverImageId   String?       @map("cover_image_id") @db.Uuid
+  coverImageAlt  String?       @map("cover_image_alt")
+  imageCredit    String?       @map("image_credit") // "Phối cảnh dự án"
+  sourceUrl      String?       @map("source_url") // public information source
+  rentalIntro    String?       @map("rental_intro")
+  rentalFocus    String?       @map("rental_focus")
+  rentalChecks   String[]      @default([]) @map("rental_checks")
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  sortOrder      Int           @default(0) @map("sort_order")
+  deletedAt      DateTime?     @map("deleted_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  coverImage MediaAsset?                @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  categories ProjectCategoryOnProject[]
+  images     ProjectImage[]
+  amenities  ProjectAmenity[]
+  highlights ProjectHighlight[]
+  properties Property[]
+  banner     Banner?
+  leads      Lead[]
+
+  @@index([status, deletedAt, sortOrder])
+  @@map("projects")
+}
+
+model ProjectImage {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @map("project_id") @db.Uuid
+  mediaId   String     @map("media_id") @db.Uuid
+  caption   String?
+  sortOrder Int        @default(0) @map("sort_order")
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, mediaId])
+  @@index([projectId, sortOrder])
+  @@map("project_images")
+}
+
+model ProjectAmenity {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  name      String
+  sortOrder Int     @default(0) @map("sort_order")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sortOrder])
+  @@map("project_amenities")
+}
+
+model ProjectHighlight {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  title     String
+  text      String
+  sortOrder Int     @default(0) @map("sort_order")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sortOrder])
+  @@map("project_highlights")
+}
+
+enum RedirectEntity {
+  PROJECT
+  PROPERTY
+  POST
+}
+
+/// Old slug → entity, so renamed URLs answer with a permanent redirect.
+model SlugRedirect {
+  id         String         @id @default(uuid()) @db.Uuid
+  entityType RedirectEntity @map("entity_type")
+  fromSlug   String         @map("from_slug")
+  entityId   String         @map("entity_id") @db.Uuid
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@unique([entityType, fromSlug])
+  @@index([entityType, entityId])
+  @@map("slug_redirects")
+}
+
+// ────────────────────────── Real-estate inventory ───────────────────────
+
+model PropertyType {
+  id         String     @id @default(uuid()) @db.Uuid
+  code       String     @unique
+  name       String
+  sortOrder  Int        @default(0) @map("sort_order")
+  properties Property[]
+
+  @@map("property_types")
+}
+
+enum Availability {
+  AVAILABLE
+  RESERVED
+  RENTED
+  SOLD
+  MAINTENANCE
+}
+
+enum Furnishing {
+  FULL
+  BASIC
+  NONE
+}
+
+model Property {
+  id                 String        @id @default(uuid()) @db.Uuid
+  slug               String        @unique
+  name               String
+  projectId          String        @map("project_id") @db.Uuid
+  propertyTypeId     String        @map("property_type_id") @db.Uuid
+  unitCode           String?       @map("unit_code")
+  forRent            Boolean       @default(true) @map("for_rent")
+  forSale            Boolean       @default(false) @map("for_sale")
+  isConsignment      Boolean       @default(false) @map("is_consignment")
+  availability       Availability  @default(AVAILABLE)
+  status             PublishStatus @default(DRAFT)
+  publishedAt        DateTime?     @map("published_at")
+  isDemo             Boolean       @default(false) @map("is_demo") // demo units are never indexed
+  location           String
+  address            String?
+  areaM2             Decimal       @map("area_m2") @db.Decimal(8, 2)
+  bedrooms           Int           @default(0)
+  bathrooms          Int           @default(1)
+  floor              Int?
+  direction          String?
+  furnishing         Furnishing    @default(FULL)
+  rentPriceVnd       BigInt?       @map("rent_price_vnd") // per month
+  salePriceVnd       BigInt?       @map("sale_price_vnd")
+  depositVnd         BigInt?       @map("deposit_vnd")
+  managementFeeVnd   BigInt?       @map("management_fee_vnd") // per month
+  minimumLeaseMonths Int?          @map("minimum_lease_months")
+  availableFrom      DateTime?     @map("available_from") @db.Date
+  contactName        String?       @map("contact_name")
+  contactPhone       String?       @map("contact_phone")
+  rentalPolicy       String?       @map("rental_policy")
+  description        String
+  /// Lower-case, accent-free text (name, code, location, project) for search.
+  searchText         String        @default("") @map("search_text")
+  coverImageId       String?       @map("cover_image_id") @db.Uuid
+  coverImageAlt      String?       @map("cover_image_alt")
+  videoUrl           String?       @map("video_url")
+  seoTitle           String?       @map("seo_title")
+  seoDescription     String?       @map("seo_description")
+  deletedAt          DateTime?     @map("deleted_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  propertyType PropertyType      @relation(fields: [propertyTypeId], references: [id], onDelete: Restrict)
+  coverImage   MediaAsset?       @relation("PropertyCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  images       PropertyImage[]
+  amenities    PropertyAmenity[]
+  leads        Lead[]
+
+  @@index([status, deletedAt, projectId])
+  @@index([projectId])
+  @@index([rentPriceVnd])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         String     @id @default(uuid()) @db.Uuid
+  propertyId String     @map("property_id") @db.Uuid
+  mediaId    String     @map("media_id") @db.Uuid
+  sortOrder  Int        @default(0) @map("sort_order")
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  media      MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, mediaId])
+  @@index([propertyId, sortOrder])
+  @@map("property_images")
+}
+
+model PropertyAmenity {
+  id         String   @id @default(uuid()) @db.Uuid
+  propertyId String   @map("property_id") @db.Uuid
+  name       String
+  sortOrder  Int      @default(0) @map("sort_order")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+  @@map("property_amenities")
+}
+
+// ─────────────────────────────── Banners ────────────────────────────────
+
+enum BannerType {
+  NORMAL
+  PROJECT
+}
+
+/// Single source of truth for homepage banners. A PROJECT banner is unique
+/// per project (projectId @unique); CHECK constraint in the migration
+/// enforces type ⇔ projectId consistency.
+model Banner {
+  id              String      @id @default(uuid()) @db.Uuid
+  type            BannerType
+  label           String?
+  title           String?
+  description     String?
+  imageId         String?     @map("image_id") @db.Uuid
+  mobileImageId   String?     @map("mobile_image_id") @db.Uuid
+  imageAlt        String?     @map("image_alt")
+  projectId       String?     @unique @map("project_id") @db.Uuid
+  useProjectImage Boolean     @default(false) @map("use_project_image")
+  isActive        Boolean     @default(true) @map("is_active")
+  sortOrder       Int         @map("sort_order")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  image           MediaAsset? @relation("BannerImage", fields: [imageId], references: [id], onDelete: SetNull)
+  mobileImage     MediaAsset? @relation("BannerMobileImage", fields: [mobileImageId], references: [id], onDelete: SetNull)
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}
+
+// ──────────────────────────────── Content ───────────────────────────────
+
+model BlogCategory {
+  id          String     @id @default(uuid()) @db.Uuid
+  slug        String     @unique
+  name        String
+  description String?
+  sortOrder   Int        @default(0) @map("sort_order")
+  posts       BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model BlogTag {
+  id    String          @id @default(uuid()) @db.Uuid
+  slug  String          @unique
+  name  String
+  posts BlogPostTag[]
+
+  @@map("blog_tags")
+}
+
+model BlogPost {
+  id             String        @id @default(uuid()) @db.Uuid
+  slug           String        @unique
+  title          String
+  excerpt        String
+  content        String        @default("") // sanitized plain text, paragraphs split by newline
+  categoryId     String        @map("category_id") @db.Uuid
+  authorName     String        @default("Đất Vàng Group") @map("author_name")
+  readingMinutes Int           @default(5) @map("reading_minutes")
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at") // future date = scheduled
+  isDemo         Boolean       @default(false) @map("is_demo")
+  coverImageId   String?       @map("cover_image_id") @db.Uuid
+  coverImageAlt  String?       @map("cover_image_alt")
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  deletedAt      DateTime?     @map("deleted_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  category       BlogCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  coverImage     MediaAsset?   @relation("PostCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  tags           BlogPostTag[]
+
+  @@index([status, deletedAt, publishedAt])
+  @@index([categoryId])
+  @@map("blog_posts")
+}
+
+model BlogPostTag {
+  postId String   @map("post_id") @db.Uuid
+  tagId  String   @map("tag_id") @db.Uuid
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("blog_post_tags")
+}
+
+/// Company/editorial pages addressed by their URL path (e.g. "gioi-thieu/doi-ngu").
+model StaticPage {
+  id             String        @id @default(uuid()) @db.Uuid
+  path           String        @unique
+  title          String
+  eyebrow        String?
+  intro          String
+  sections       Json          @default("[]") // [{ heading, body }]
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at")
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("static_pages")
+}
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  isPublic  Boolean  @default(false) @map("is_public")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ─────────────────────────── Customer management ────────────────────────
+
+/// CONTACT = contact/partnership/career form; INQUIRY = project/property request.
+enum LeadKind {
+  CONTACT
+  INQUIRY
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTING
+  DONE
+  UNQUALIFIED
+}
+
+enum LeadPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+model Lead {
+  id                String       @id @default(uuid()) @db.Uuid
+  kind              LeadKind
+  source            String // form origin, e.g. "Liên hệ", "Tư vấn căn hộ"
+  intent            String?
+  name              String
+  email             String
+  phone             String?
+  message           String
+  company           String?
+  position          String?
+  projectId         String?      @map("project_id") @db.Uuid
+  propertyId        String?      @map("property_id") @db.Uuid
+  status            LeadStatus   @default(NEW)
+  priority          LeadPriority @default(NORMAL)
+  assigneeId        String?      @map("assignee_id") @db.Uuid
+  notes             String?
+  budgetMinVnd      BigInt?      @map("budget_min_vnd")
+  budgetMaxVnd      BigInt?      @map("budget_max_vnd")
+  preferredLocation String?      @map("preferred_location")
+  preferredContact  String?      @map("preferred_contact")
+  followUpAt        DateTime?    @map("follow_up_at")
+  consentAt         DateTime     @map("consent_at")
+  ipHash            String?      @map("ip_hash") // salted hash, never raw IP
+  userAgent         String?      @map("user_agent")
+  deletedAt         DateTime?    @map("deleted_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  project           Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  property          Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  assignee          User?        @relation("LeadAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([assigneeId])
+  @@index([email])
+  @@map("leads")
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique
+  consentAt      DateTime  @map("consent_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("newsletter_subscribers")
+}

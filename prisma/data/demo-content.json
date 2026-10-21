@@ -1,0 +1,632 @@
+{
+  "exportedAt": "2026-10-21T04:18:44.495Z",
+  "classification": "DEMO ONLY — never import into production",
+  "properties": [
+    {
+      "slug": "can-ho-sun-ponte-residence-demo-01",
+      "name": "Studio đón nắng · 01",
+      "projectSlug": "sun-ponte-residence",
+      "propertyType": "studio",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 35,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 5,
+      "furnishing": "BASIC",
+      "availability": "RENTED",
+      "rentPriceVnd": "7500000",
+      "description": "Không gian 35 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Ponte Residence phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": "/images/video.mp4"
+    },
+    {
+      "slug": "can-ho-sun-panoma-demo-02",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 02",
+      "projectSlug": "sun-panoma",
+      "propertyType": "1pn",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "areaM2": 47,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 6,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "9500000",
+      "description": "Không gian 47 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Panoma phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-monarchy-apartments-demo-03",
+      "name": "Căn hộ 2 phòng ngủ view sông · 03",
+      "projectSlug": "monarchy-apartments",
+      "propertyType": "2pn",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 59,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 7,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "11500000",
+      "description": "Không gian 59 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại The Monarchy phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sam-tower-demo-04",
+      "name": "Căn hộ dịch vụ panorama · 04",
+      "projectSlug": "sam-tower",
+      "propertyType": "serviced",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "areaM2": 71,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 8,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "13500000",
+      "description": "Không gian 71 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sam Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-hiyori-garden-tower-demo-05",
+      "name": "Studio đón nắng · 05",
+      "projectSlug": "hiyori-garden-tower",
+      "propertyType": "studio",
+      "location": "Võ Văn Kiệt · Đà Nẵng",
+      "areaM2": 83,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 9,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "15500000",
+      "description": "Không gian 83 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Hiyori Garden Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-ponte-residence-demo-06",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 06",
+      "projectSlug": "sun-ponte-residence",
+      "propertyType": "1pn",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 95,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 10,
+      "furnishing": "BASIC",
+      "availability": "RENTED",
+      "rentPriceVnd": "17500000",
+      "description": "Không gian 95 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Ponte Residence phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-panoma-demo-07",
+      "name": "Căn hộ 2 phòng ngủ view sông · 07",
+      "projectSlug": "sun-panoma",
+      "propertyType": "2pn",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "areaM2": 107,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 11,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "19500000",
+      "description": "Không gian 107 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Panoma phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-monarchy-apartments-demo-08",
+      "name": "Căn hộ dịch vụ panorama · 08",
+      "projectSlug": "monarchy-apartments",
+      "propertyType": "serviced",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 35,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 12,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "21500000",
+      "description": "Không gian 35 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại The Monarchy phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sam-tower-demo-09",
+      "name": "Studio đón nắng · 09",
+      "projectSlug": "sam-tower",
+      "propertyType": "studio",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "areaM2": 47,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 13,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "23500000",
+      "description": "Không gian 47 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sam Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-hiyori-garden-tower-demo-10",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 10",
+      "projectSlug": "hiyori-garden-tower",
+      "propertyType": "1pn",
+      "location": "Võ Văn Kiệt · Đà Nẵng",
+      "areaM2": 59,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 14,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "7500000",
+      "description": "Không gian 59 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Hiyori Garden Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-ponte-residence-demo-11",
+      "name": "Căn hộ 2 phòng ngủ view sông · 11",
+      "projectSlug": "sun-ponte-residence",
+      "propertyType": "2pn",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 71,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 15,
+      "furnishing": "BASIC",
+      "availability": "RENTED",
+      "rentPriceVnd": "9500000",
+      "description": "Không gian 71 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Ponte Residence phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-panoma-demo-12",
+      "name": "Căn hộ dịch vụ panorama · 12",
+      "projectSlug": "sun-panoma",
+      "propertyType": "serviced",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "areaM2": 83,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 16,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "11500000",
+      "description": "Không gian 83 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Panoma phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-monarchy-apartments-demo-13",
+      "name": "Studio đón nắng · 13",
+      "projectSlug": "monarchy-apartments",
+      "propertyType": "studio",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 95,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 17,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "13500000",
+      "description": "Không gian 95 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại The Monarchy phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sam-tower-demo-14",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 14",
+      "projectSlug": "sam-tower",
+      "propertyType": "1pn",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "areaM2": 107,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 18,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "15500000",
+      "description": "Không gian 107 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sam Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-hiyori-garden-tower-demo-15",
+      "name": "Căn hộ 2 phòng ngủ view sông · 15",
+      "projectSlug": "hiyori-garden-tower",
+      "propertyType": "2pn",
+      "location": "Võ Văn Kiệt · Đà Nẵng",
+      "areaM2": 35,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 19,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "17500000",
+      "description": "Không gian 35 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Hiyori Garden Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-ponte-residence-demo-16",
+      "name": "Căn hộ dịch vụ panorama · 16",
+      "projectSlug": "sun-ponte-residence",
+      "propertyType": "serviced",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 47,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 20,
+      "furnishing": "BASIC",
+      "availability": "RENTED",
+      "rentPriceVnd": "19500000",
+      "description": "Không gian 47 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Ponte Residence phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-panoma-demo-17",
+      "name": "Studio đón nắng · 17",
+      "projectSlug": "sun-panoma",
+      "propertyType": "studio",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "areaM2": 59,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 21,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "21500000",
+      "description": "Không gian 59 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Panoma phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-monarchy-apartments-demo-18",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 18",
+      "projectSlug": "monarchy-apartments",
+      "propertyType": "1pn",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 71,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 22,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "23500000",
+      "description": "Không gian 71 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại The Monarchy phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sam-tower-demo-19",
+      "name": "Căn hộ 2 phòng ngủ view sông · 19",
+      "projectSlug": "sam-tower",
+      "propertyType": "2pn",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "areaM2": 83,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 23,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "7500000",
+      "description": "Không gian 83 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sam Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-hiyori-garden-tower-demo-20",
+      "name": "Căn hộ dịch vụ panorama · 20",
+      "projectSlug": "hiyori-garden-tower",
+      "propertyType": "serviced",
+      "location": "Võ Văn Kiệt · Đà Nẵng",
+      "areaM2": 95,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 24,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "9500000",
+      "description": "Không gian 95 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Hiyori Garden Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-ponte-residence-demo-21",
+      "name": "Studio đón nắng · 21",
+      "projectSlug": "sun-ponte-residence",
+      "propertyType": "studio",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 107,
+      "bedrooms": 0,
+      "bathrooms": 1,
+      "floor": 25,
+      "furnishing": "BASIC",
+      "availability": "RENTED",
+      "rentPriceVnd": "11500000",
+      "description": "Không gian 107 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Ponte Residence phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sun-panoma-demo-22",
+      "name": "Căn hộ 1 phòng ngủ thanh lịch · 22",
+      "projectSlug": "sun-panoma",
+      "propertyType": "1pn",
+      "location": "Sun Cosmo Residence · Đà Nẵng",
+      "areaM2": 35,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 26,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "13500000",
+      "description": "Không gian 35 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sun Panoma phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-monarchy-apartments-demo-23",
+      "name": "Căn hộ 2 phòng ngủ view sông · 23",
+      "projectSlug": "monarchy-apartments",
+      "propertyType": "2pn",
+      "location": "Trần Hưng Đạo · Đà Nẵng",
+      "areaM2": 47,
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "floor": 27,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "15500000",
+      "description": "Không gian 47 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại The Monarchy phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85"
+      ],
+      "videoUrl": null
+    },
+    {
+      "slug": "can-ho-sam-tower-demo-24",
+      "name": "Căn hộ dịch vụ panorama · 24",
+      "projectSlug": "sam-tower",
+      "propertyType": "serviced",
+      "location": "Như Nguyệt · Đà Nẵng",
+      "areaM2": 59,
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "floor": 28,
+      "furnishing": "FULL",
+      "availability": "AVAILABLE",
+      "rentPriceVnd": "17500000",
+      "description": "Không gian 59 m² được bố trí thoáng đãng, với khu sinh hoạt chung ngập ánh sáng và khu bếp tiện dụng. Căn hộ mẫu tại Sam Tower phù hợp cho người tìm kiếm một nơi ở chỉn chu, dễ dàng kết nối với nhịp sống Đà Nẵng. Giá minh họa chưa bao gồm phí quản lý và tiện ích.",
+      "images": [
+        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+        "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85"
+      ],
+      "videoUrl": null
+    }
+  ],
+  "posts": [
+    {
+      "slug": "kinh-nghiem-thue-can-ho-da-nang",
+      "title": "Kinh nghiệm thuê căn hộ tại Đà Nẵng: bắt đầu từ đâu?",
+      "excerpt": "Từ lựa chọn khu vực đến kiểm tra hiện trạng: những điều nhỏ giúp bạn tìm được nơi ở phù hợp.",
+      "category": "cam-nang-thue-nha",
+      "categoryName": "Cẩm nang thuê nhà",
+      "readingMinutes": 4,
+      "image": "/images/nnna.png",
+      "publishedAt": "2026-10-12"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-2",
+      "title": "Không gian sống xanh giữa lòng thành phố",
+      "excerpt": "Nhìn lại cách ánh sáng, vật liệu và cây xanh tạo nên một không gian sống dễ chịu mỗi ngày.",
+      "category": "phong-cach-song",
+      "categoryName": "Phong cách sống",
+      "readingMinutes": 5,
+      "image": "/images/img1.png",
+      "publishedAt": "2026-10-11"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-3",
+      "title": "Chủ nhà cần chuẩn bị gì trước khi cho thuê căn hộ?",
+      "excerpt": "Một quy trình rõ ràng giúp chủ sở hữu và người thuê cùng an tâm trong suốt thời gian hợp tác.",
+      "category": "goc-nhin-chu-so-huu",
+      "categoryName": "Góc nhìn chủ sở hữu",
+      "readingMinutes": 6,
+      "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+      "publishedAt": "2026-10-10"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-4",
+      "title": "Một buổi sáng bên sông Hàn",
+      "excerpt": "Từ lựa chọn khu vực đến kiểm tra hiện trạng: những điều nhỏ giúp bạn tìm được nơi ở phù hợp.",
+      "category": "cam-nang-thue-nha",
+      "categoryName": "Cẩm nang thuê nhà",
+      "readingMinutes": 7,
+      "image": "/images/nnna.png",
+      "publishedAt": "2026-10-09"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-5",
+      "title": "Nội thất tối giản, trải nghiệm trọn vẹn",
+      "excerpt": "Nhìn lại cách ánh sáng, vật liệu và cây xanh tạo nên một không gian sống dễ chịu mỗi ngày.",
+      "category": "phong-cach-song",
+      "categoryName": "Phong cách sống",
+      "readingMinutes": 4,
+      "image": "/images/img1.png",
+      "publishedAt": "2026-10-08"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-6",
+      "title": "Checklist bàn giao căn hộ dành cho người thuê",
+      "excerpt": "Một quy trình rõ ràng giúp chủ sở hữu và người thuê cùng an tâm trong suốt thời gian hợp tác.",
+      "category": "goc-nhin-chu-so-huu",
+      "categoryName": "Góc nhìn chủ sở hữu",
+      "readingMinutes": 5,
+      "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+      "publishedAt": "2026-10-07"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-7",
+      "title": "Hiểu đúng về dịch vụ quản lý bất động sản",
+      "excerpt": "Từ lựa chọn khu vực đến kiểm tra hiện trạng: những điều nhỏ giúp bạn tìm được nơi ở phù hợp.",
+      "category": "cam-nang-thue-nha",
+      "categoryName": "Cẩm nang thuê nhà",
+      "readingMinutes": 6,
+      "image": "/images/nnna.png",
+      "publishedAt": "2026-10-06"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-8",
+      "title": "Studio hay căn hộ một phòng ngủ?",
+      "excerpt": "Nhìn lại cách ánh sáng, vật liệu và cây xanh tạo nên một không gian sống dễ chịu mỗi ngày.",
+      "category": "phong-cach-song",
+      "categoryName": "Phong cách sống",
+      "readingMinutes": 7,
+      "image": "/images/img1.png",
+      "publishedAt": "2026-10-05"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-9",
+      "title": "Ánh sáng tự nhiên trong kiến trúc nhà ở",
+      "excerpt": "Một quy trình rõ ràng giúp chủ sở hữu và người thuê cùng an tâm trong suốt thời gian hợp tác.",
+      "category": "goc-nhin-chu-so-huu",
+      "categoryName": "Góc nhìn chủ sở hữu",
+      "readingMinutes": 4,
+      "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+      "publishedAt": "2026-10-04"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-10",
+      "title": "Lập kế hoạch chi phí thuê nhà hàng tháng",
+      "excerpt": "Từ lựa chọn khu vực đến kiểm tra hiện trạng: những điều nhỏ giúp bạn tìm được nơi ở phù hợp.",
+      "category": "cam-nang-thue-nha",
+      "categoryName": "Cẩm nang thuê nhà",
+      "readingMinutes": 5,
+      "image": "/images/nnna.png",
+      "publishedAt": "2026-10-03"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-11",
+      "title": "Chăm sóc căn hộ trong mùa mưa",
+      "excerpt": "Nhìn lại cách ánh sáng, vật liệu và cây xanh tạo nên một không gian sống dễ chịu mỗi ngày.",
+      "category": "phong-cach-song",
+      "categoryName": "Phong cách sống",
+      "readingMinutes": 6,
+      "image": "/images/img1.png",
+      "publishedAt": "2026-10-02"
+    },
+    {
+      "slug": "goc-nhin-khong-gian-song-12",
+      "title": "Xây dựng mối quan hệ thuê nhà bền vững",
+      "excerpt": "Một quy trình rõ ràng giúp chủ sở hữu và người thuê cùng an tâm trong suốt thời gian hợp tác.",
+      "category": "goc-nhin-chu-so-huu",
+      "categoryName": "Góc nhìn chủ sở hữu",
+      "readingMinutes": 7,
+      "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85",
+      "publishedAt": "2026-10-01"
+    }
+  ]
+}
