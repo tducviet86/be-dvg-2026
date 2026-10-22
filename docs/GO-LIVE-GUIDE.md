@@ -20,6 +20,7 @@ Tài liệu này dành cho chủ dự án: mỗi bước ghi rõ **ai làm**, **
 3. Khởi động lại API (`npm run start:dev` trong `BE-DVG`).
 4. Kiểm tra: Admin → Bài viết → Thêm mới → nhập tiêu đề, sapo, nội dung → mục **Hiển thị trên Google** → **Tạo gợi ý** → xem trước như kết quả Google → **Áp dụng vào form** → **Lưu**.
 
+> **Đa ngôn ngữ (VI/EN/KO/ZH):** website có URL riêng cho từng ngôn ngữ (`/en/...`, `/ko/...`, `/zh/...`; tiếng Việt giữ URL gốc). Máy chủ dựng sẵn trang đã dịch nên Google lập chỉ mục được, có `hreflang` và sitemap đa ngôn ngữ. Khách mới được tự chuyển theo ngôn ngữ trình duyệt (bot tìm kiếm thì không). Bản dịch do Gemini làm, lưu trong bảng `translations`, sửa được ở **Admin › Bản dịch**. Khóa **Free Tier** giới hạn rất thấp (vài chục lượt/ngày cho một số model) → trước khi mở cho khách quốc tế phải **bật thanh toán (Tier 1)** rồi chạy `npm run i18n:warm` (xem Bước 7).
 > Chỉ ghi khóa vào `.env` (không commit). **Không** ghi vào `.env.example` — file đó được đưa lên Git.
 > Khóa chỉ nằm ở máy chủ API, không bao giờ gửi xuống trình duyệt. Không gửi khóa qua chat/email; nếu lỡ lộ, vào AI Studio xóa khóa và tạo khóa mới.
 > Nên đặt **giới hạn chi tiêu / hạn mức** cho dự án Google Cloud chứa khóa. API đã giới hạn 10 lượt gợi ý/phút/người và ghi nhật ký mỗi lượt (`ai.seo_suggest`).
@@ -75,6 +76,8 @@ IP_HASH_SALT=<openssl rand -hex 16>
 GEMINI_API_KEY=<khóa production>
 GEMINI_MODEL=gemini-3.8-flash
 GEMINI_FALLBACK_MODEL=gemini-3.5-flash
+GEMINI_TRANSLATE_MODEL=gemini-3.5-flash-lite
+I18N_DAILY_CHAR_LIMIT=400000
 ```
 
 **Website (FE-DVG)** — `API_INTERNAL_URL` và `MEDIA_REMOTE_PATTERNS` phải có **lúc build**:
@@ -149,6 +152,12 @@ Danh sách đầy đủ ở `DATA-MIGRATION.md` §4. Tối thiểu trước khi 
 2. Chuyển nội dung đã duyệt: xuất bản lại trên production (hoặc chuyển dữ liệu có kiểm soát từ staging).
 3. Trỏ `datvanggroup.vn` (và `www` → chuyển về tên miền chính) vào web production; bật HTTPS, HTTP → HTTPS.
 4. Smoke test: trang chủ, 1 dự án, `/sitemap.xml`, `/robots.txt`, đăng nhập Admin, gửi form.
+5. **Dịch sẵn toàn bộ website** (EN/KO/ZH) để khách không bao giờ thấy trang chưa dịch — chạy trong thư mục `FE-DVG`:
+   ```bash
+   SITE_URL=https://datvanggroup.vn REVALIDATE_SECRET='<giống BE>' npm run i18n:warm
+   ```
+   Script mở từng trang ở 3 ngôn ngữ, chờ máy chủ dịch phần còn thiếu và lặp lại tới khi hết chữ tiếng Việt. Chạy lại sau mỗi lần đổi giao diện; nội dung mới (dự án, căn hộ, bài viết) được dịch tự động khi bấm Lưu. Nên vào **Admin › Bản dịch** duyệt các câu quan trọng (khẩu hiệu, giới thiệu).
+   Bản dịch đã làm ở staging có thể chuyển sang production bằng cách sao chép bảng `translations`.
 
 ## Bước 8 — Sau khi mở (tuần đầu)
 
@@ -170,3 +179,5 @@ Danh sách đầy đủ ở `DATA-MIGRATION.md` §4. Tối thiểu trước khi 
 | Hotline/Zalo trên website đọc từ Admin › Cài đặt | Đổi số không cần build lại |
 | MFA cho tài khoản quản trị, tự đổi mật khẩu | An toàn hơn |
 | AI gợi ý SEO tự động khi lưu nếu ô SEO trống | Đỡ thao tác cho biên tập |
+| Nhờ người bản xứ duyệt bản dịch các trang chính (Admin › Bản dịch) | Câu chữ tự nhiên nhất cho khách quốc tế |
+| Đường dẫn (slug) dịch theo ngôn ngữ, vd `/en/projects/...` | SEO quốc tế tốt hơn nữa |

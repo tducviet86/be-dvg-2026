@@ -13,3 +13,4 @@ process.env.COOKIE_SECURE = 'false';
 process.env.FRONTEND_REVALIDATE_URL = '';
 process.env.GEMINI_API_KEY = 'test-gemini-key';
 process.env.GEMINI_API_BASE = 'http://127.0.0.1:4199';
+process.env.REVALIDATE_SECRET = 'test-revalidate-secret-0123456789';

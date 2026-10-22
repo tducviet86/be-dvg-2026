@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { BannersService } from '../banners/banners.service.js';
+import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
 import type { AdminProjectQuery, CreateProjectDto, PublicProjectQuery, UpdateProjectDto } from './projects.dto.js';
 import { projectInclude, toAdminProject, toPublicProject } from './projects.mapper.js';
@@ -25,6 +26,7 @@ export class ProjectsService {
     private readonly banners: BannersService,
     private readonly audit: AuditService,
     private readonly revalidation: RevalidationService,
+    private readonly i18n: I18nService,
   ) {}
 
   // ─────────────── public ───────────────
@@ -143,6 +145,7 @@ export class ProjectsService {
       return project.id;
     });
     await this.revalidation.trigger('projects', 'banners', 'properties');
+    this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
 
@@ -183,6 +186,7 @@ export class ProjectsService {
       await this.audit.log({ actorId: user.id, action: 'project.update', entityType: 'project', entityId: id, changes: JSON.parse(JSON.stringify({ ...dto, overview: undefined })) }, tx);
     });
     await this.revalidation.trigger('projects', 'banners', 'properties');
+    this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
 

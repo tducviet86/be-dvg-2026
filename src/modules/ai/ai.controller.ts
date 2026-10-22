@@ -56,5 +56,5 @@ export class AiController {
   }
 }
 
-@Module({ controllers: [AiController], providers: [AiService] })
+@Module({ controllers: [AiController], providers: [AiService], exports: [AiService] })
 export class AiModule {}

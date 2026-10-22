@@ -58,6 +58,10 @@ export const envSchema = z
     /** Tried once when the main model is overloaded (503/429); empty = none. */
     GEMINI_FALLBACK_MODEL: z.string().regex(/^[\w.-]*$/).default('gemini-3.5-flash'),
     GEMINI_API_BASE: z.string().url().default('https://generativelanguage.googleapis.com'),
+    /** Model for website translation (EN/KO/ZH): fast and cheap. */
+    GEMINI_TRANSLATE_MODEL: z.string().regex(/^[\w.-]+$/).default('gemini-3.5-flash-lite'),
+    /** Characters of NEW (uncached) text sent to Gemini per day; 0 = translation off. */
+    I18N_DAILY_CHAR_LIMIT: z.coerce.number().int().min(0).default(400_000),
     /** Rate limiting; may only be disabled for automated end-to-end runs. */
     THROTTLE_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   })

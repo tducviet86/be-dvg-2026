@@ -595,3 +595,22 @@ model NewsletterSubscriber {
 
   @@map("newsletter_subscribers")
 }
+
+/// Website translations (EN/KO/ZH) of Vietnamese UI and content strings,
+/// produced by Gemini on first view and reused for every visitor.
+model Translation {
+  id         String   @id @default(uuid()) @db.Uuid
+  locale     String   @db.VarChar(5)
+  /// sha256 of the normalised Vietnamese source.
+  sourceHash String   @map("source_hash") @db.Char(64)
+  source     String
+  text       String
+  model      String?  @db.VarChar(60)
+  /// Corrected by staff: never overwritten by AI.
+  reviewed   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([locale, sourceHash])
+  @@map("translations")
+}

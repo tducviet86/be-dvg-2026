@@ -34,6 +34,7 @@ import { BannerType } from '../../generated/prisma/enums.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
+import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
 import { BannersService } from './banners.service.js';
 
@@ -65,6 +66,7 @@ export class BannersController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly revalidation: RevalidationService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Public()
@@ -94,6 +96,7 @@ export class BannersController {
       return created;
     });
     await this.revalidation.trigger('banners');
+    this.i18n.queueContent(dto);
     return { data: await this.banners.get(banner.id) };
   }
 
@@ -109,6 +112,7 @@ export class BannersController {
       await this.audit.log({ actorId: user.id, action: 'banner.update', entityType: 'banner', entityId: id, changes: { ...dto } }, tx);
     });
     await this.revalidation.trigger('banners');
+    this.i18n.queueContent(dto);
     return { data: await this.banners.get(id) };
   }
 

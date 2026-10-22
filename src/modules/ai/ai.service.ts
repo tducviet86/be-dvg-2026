@@ -19,6 +19,16 @@ export type SeoSuggestion = {
   imageAlt: string;
 };
 
+export type GeminiRequest = {
+  system: string;
+  input: string;
+  /** JSON schema the answer must follow. */
+  schema: Record<string, unknown>;
+  timeoutMs?: number;
+  /** Gemini thinking level; 'minimal' is fastest (not every model accepts it). */
+  thinking?: 'minimal' | 'low';
+};
+
 /** Search-result limits (characters) used in prompt and post-processing. */
 export const SEO_LIMITS = { title: 60, description: 160, keywords: 8, alt: 125 };
 const MAX_SOURCE = 12_000;
@@ -62,8 +72,6 @@ export class AiService {
   }
 
   async suggestSeo(input: SeoInput): Promise<SeoSuggestion> {
-    if (!this.enabled)
-      throw new AppError(HttpStatus.SERVICE_UNAVAILABLE, 'AI_DISABLED', 'Chưa cấu hình khóa Gemini (GEMINI_API_KEY) cho máy chủ.');
     const source = [
       `Loại trang: ${KIND_LABEL[input.kind]}`,
       `Tiêu đề: ${input.title}`,
@@ -74,20 +82,20 @@ export class AiService {
       .filter(Boolean)
       .join('\n\n')
       .slice(0, MAX_SOURCE);
-    const fallback = this.config.get('GEMINI_FALLBACK_MODEL');
-    let result = await this.call(this.model, source);
-    if (!result.ok && result.retryable && fallback && fallback !== this.model) {
-      this.logger.warn({ model: this.model, fallback }, 'gemini overloaded, trying fallback model');
-      result = await this.call(fallback, source);
-    }
-    if (!result.ok) throw this.unavailable(result.message);
-    const text = result.text;
-    let parsed: Partial<SeoSuggestion>;
-    try {
-      parsed = JSON.parse(text) as Partial<SeoSuggestion>;
-    } catch {
-      throw this.unavailable('AI trả về dữ liệu không đọc được. Vui lòng thử lại.');
-    }
+    const parsed = await this.generateJson<Partial<SeoSuggestion>>({
+      system: SYSTEM,
+      input: `<noi_dung>\n${source}\n</noi_dung>`,
+      schema: {
+        type: 'object',
+        properties: {
+          seoTitle: { type: 'string', description: `Tiêu đề SEO, tối đa ${SEO_LIMITS.title} ký tự` },
+          seoDescription: { type: 'string', description: `Mô tả SEO, tối đa ${SEO_LIMITS.description} ký tự` },
+          keywords: { type: 'array', items: { type: 'string' } },
+          imageAlt: { type: 'string' },
+        },
+        required: ['seoTitle', 'seoDescription', 'keywords', 'imageAlt'],
+      },
+    });
     const keywords = [...new Set((parsed.keywords ?? []).map((k) => fit(String(k).toLowerCase(), 60)).filter(Boolean))];
     const suggestion = {
       seoTitle: fit(parsed.seoTitle ?? '', SEO_LIMITS.title),
@@ -101,12 +109,32 @@ export class AiService {
   }
 
   /**
-   * One request to the Gemini Interactions API
-   * (POST /v1beta/interactions) asking for JSON matching the SEO schema.
+   * Asks Gemini for JSON matching `schema`. Retries once with
+   * GEMINI_FALLBACK_MODEL when the model is overloaded; throws AI_UNAVAILABLE
+   * (502) on failure.
    */
+  async generateJson<T>(request: GeminiRequest & { model?: string }): Promise<T> {
+    if (!this.enabled)
+      throw new AppError(HttpStatus.SERVICE_UNAVAILABLE, 'AI_DISABLED', 'Chưa cấu hình khóa Gemini (GEMINI_API_KEY) cho máy chủ.');
+    const model = request.model || this.model;
+    const fallback = this.config.get('GEMINI_FALLBACK_MODEL');
+    let result = await this.call(model, request);
+    if (!result.ok && result.retryable && fallback && fallback !== model) {
+      this.logger.warn({ model, fallback }, 'gemini overloaded, trying fallback model');
+      result = await this.call(fallback, request);
+    }
+    if (!result.ok) throw this.unavailable(result.message);
+    try {
+      return JSON.parse(result.text) as T;
+    } catch {
+      throw this.unavailable('AI trả về dữ liệu không đọc được. Vui lòng thử lại.');
+    }
+  }
+
+  /** One request to the Gemini Interactions API (POST /v1beta/interactions). */
   private async call(
     model: string,
-    source: string,
+    request: GeminiRequest,
   ): Promise<{ ok: true; text: string } | { ok: false; retryable: boolean; message: string }> {
     let res: Response;
     try {
@@ -115,26 +143,13 @@ export class AiService {
         headers: { 'content-type': 'application/json', 'x-goog-api-key': this.config.get('GEMINI_API_KEY') },
         body: JSON.stringify({
           model,
-          system_instruction: SYSTEM,
-          input: `<noi_dung>\n${source}\n</noi_dung>`,
-          // Short, factual copy: little reasoning needed, so answer fast.
-          generation_config: { thinking_level: 'low' },
-          response_format: {
-            type: 'text',
-            mime_type: 'application/json',
-            schema: {
-              type: 'object',
-              properties: {
-                seoTitle: { type: 'string', description: `Tiêu đề SEO, tối đa ${SEO_LIMITS.title} ký tự` },
-                seoDescription: { type: 'string', description: `Mô tả SEO, tối đa ${SEO_LIMITS.description} ký tự` },
-                keywords: { type: 'array', items: { type: 'string' } },
-                imageAlt: { type: 'string' },
-              },
-              required: ['seoTitle', 'seoDescription', 'keywords', 'imageAlt'],
-            },
-          },
+          system_instruction: request.system,
+          input: request.input,
+          // Short, factual output: little reasoning needed, so answer fast.
+          generation_config: { thinking_level: request.thinking ?? 'low' },
+          response_format: { type: 'text', mime_type: 'application/json', schema: request.schema },
         }),
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(request.timeoutMs ?? 45_000),
       });
     } catch (err) {
       this.logger.warn({ err, model }, 'gemini request failed');

@@ -41,6 +41,9 @@ Request admin dùng cookie phải gửi `X-CSRF-Token` cho POST/PATCH/PUT/DELETE
 | POST | `/contact`, `/inquiries` | `{ name, email, phone?, message, consent: true, intent?, source?, projectSlug?, propertySlug?, website (honeypot), elapsedMs }` → 202. 5 lần/10 phút/IP. |
 | POST | `/newsletter` | `{ email }` → 202 |
 | GET | `/health`, `/health/ready` | Liveness / readiness (kiểm tra DB) |
+| GET | `/i18n/status` | `{ enabled, locales: ["vi","en","ko","zh"] }` |
+| GET | `/i18n/dictionary?locale=en\|ko\|zh` | `{ locale, version, entries: { "<câu tiếng Việt>": "<bản dịch>" } }` — toàn bộ bản dịch của một ngôn ngữ; website nạp để dựng trang `/en`, `/ko`, `/zh`. |
+| POST | `/i18n/translate` | **Chỉ máy chủ website gọi** (header `x-revalidate-secret`). `{ locale, texts[] ≤ 300 }` → `{ translations }`. Dịch bằng Gemini (`GEMINI_TRANSLATE_MODEL`), lưu bảng `translations`; câu chưa dịch được thì bỏ qua (trang giữ tiếng Việt, dịch lại sau). Giới hạn ký tự mới/ngày `I18N_DAILY_CHAR_LIMIT`. |
 
 ## Admin (cần đăng nhập + quyền)
 
@@ -57,6 +60,7 @@ Request admin dùng cookie phải gửi `X-CSRF-Token` cho POST/PATCH/PUT/DELETE
 | Cài đặt | `GET/PUT /admin/settings` (`{ values: { key: value } }`) | `settings:write` |
 | Người dùng | `GET/POST /admin/users`, `PATCH /admin/users/:id`, `GET /admin/users/roles`, `GET /admin/users/assignable` | `users:manage` (assignable: `leads:read`) |
 | Nhật ký | `GET /admin/audit-logs?entityType&entityId&action` | `audit:read` |
+| Bản dịch | `GET /admin/translations?locale&q&reviewed&page`, `PATCH /admin/translations/:id` `{ text, expectedUpdatedAt }` → đánh dấu `reviewed` (AI không ghi đè). Nội dung dự án/căn hộ/bài viết/trang/banner được dịch nền ngay khi lưu. | `content:read`, sửa: `pages:write` |
 | AI SEO | `GET /admin/ai/status` → `{ seo, model, limits }`; `POST /admin/ai/seo-suggest` `{ kind: post|project|property, title, summary?, content?, context? }` → `{ seoTitle ≤60, seoDescription ≤160, keywords[], imageAlt }` (không lưu gì; 10 lượt/phút; gọi Gemini Interactions API, quá tải thì thử lại một lần với `GEMINI_FALLBACK_MODEL`; lỗi `AI_DISABLED` 503 / `AI_UNAVAILABLE` 502) | `content:read` + quyền ghi của loại nội dung |
 
 Nhân viên vai trò `sales` chỉ thấy lead được giao cho mình hoặc chưa giao.
