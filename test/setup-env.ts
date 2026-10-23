@@ -14,3 +14,8 @@ process.env.FRONTEND_REVALIDATE_URL = '';
 process.env.GEMINI_API_KEY = 'test-gemini-key';
 process.env.GEMINI_API_BASE = 'http://127.0.0.1:4199';
 process.env.REVALIDATE_SECRET = 'test-revalidate-secret-0123456789';
+// New-lead emails go to a local stand-in SMTP server (test/content.e2e-spec.ts).
+process.env.SMTP_HOST = '127.0.0.1';
+process.env.SMTP_PORT = '4198';
+process.env.SMTP_SECURE = 'false';
+process.env.MAIL_FROM = 'Đất Vàng Group <noreply@dvg.test>';

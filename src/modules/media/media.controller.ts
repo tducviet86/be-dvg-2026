@@ -25,13 +25,17 @@ import { plainText } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
-import { MediaService } from './media.service.js';
+import { MediaService, type MediaOwner } from './media.service.js';
 
 class MediaQuery extends PaginationQuery {
   @IsOptional() @IsIn(['image', 'video']) type?: 'image' | 'video';
 }
 class AltDto {
   @IsOptional() @IsString() @MaxLength(300) alt?: string;
+  /** What the file belongs to: names the storage folder (can-ho/MB029/…). */
+  @IsOptional() @IsIn(['property', 'project', 'post', 'banner']) owner?: MediaOwner;
+  /** Unit code or slug of that record, e.g. "MB029". */
+  @IsOptional() @IsString() @MaxLength(80) code?: string;
 }
 
 @ApiTags('admin/media')
@@ -51,7 +55,7 @@ export class MediaController {
     @Body() body: AltDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return { data: await this.media.upload(file, body.alt, user.id) };
+    return { data: await this.media.upload(file, body.alt, user.id, { owner: body.owner, code: body.code }) };
   }
 
   @Get()

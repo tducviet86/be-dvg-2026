@@ -55,6 +55,7 @@ for (const p of content.projects) {
       coverImageId: cover.id,
       coverImageAlt: `${p.imageCredit} ${p.name}`,
       mapUrl: p.map?.url,
+      facebookUrl: p.facebookUrl,
       mapLabel: p.map?.label,
       latitude: p.map?.lat,
       longitude: p.map?.lng,

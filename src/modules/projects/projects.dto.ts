@@ -61,6 +61,9 @@ export class CreateProjectDto {
   @IsOptional() @IsISO8601({ strict: true }) startDate?: string | null;
   @IsOptional() @IsISO8601({ strict: true }) handoverDate?: string | null;
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) mapUrl?: string | null;
+  @IsOptional()
+  @IsUrl({ protocols: ['https'], require_protocol: true, host_whitelist: ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'fb.com'] }, { message: 'Nhập đường dẫn trang Facebook (https://www.facebook.com/…).' })
+  facebookUrl?: string | null;
   @IsOptional() @Clean() @IsString() @MaxLength(200) mapLabel?: string | null;
   @IsOptional() @IsLatitude() latitude?: number | null;
   @IsOptional() @IsLongitude() longitude?: number | null;

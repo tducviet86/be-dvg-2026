@@ -8,6 +8,7 @@ import { money, toBigInt } from '../../common/utils/serialize.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { Lead, Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
+import { MailService } from '../mail/mail.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import type { CreateLeadDto, InquiryDto, LeadQuery, NewsletterDto, PublicFormDto, UpdateLeadDto } from './leads.dto.js';
 
@@ -53,6 +54,7 @@ export class LeadsService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   private ipHash(ip?: string) {
@@ -96,7 +98,73 @@ export class LeadsService {
         userAgent: ctx.userAgent?.slice(0, 300),
       },
     });
+    void this.notifyNewLead(lead.id);
     return { id: lead.id };
+  }
+
+  /** Recipient: Admin › Cài đặt › "Email tiếp nhận yêu cầu", else LEADS_NOTIFY_EMAIL. */
+  private async notifyRecipient() {
+    const row = await this.prisma.siteSetting.findUnique({ where: { key: 'leads.notificationEmail' } });
+    const fromSettings = typeof row?.value === 'string' ? row.value.trim() : '';
+    return fromSettings || this.config.get('LEADS_NOTIFY_EMAIL');
+  }
+
+  /**
+   * Emails the team about a request from the website (in the background: the
+   * visitor never waits and a mail failure never loses the lead).
+   */
+  private async notifyNewLead(id: string) {
+    try {
+      const to = await this.notifyRecipient();
+      if (!to || !this.mail.enabled) return;
+      const lead = await this.prisma.lead.findUnique({
+        where: { id },
+        include: { project: { select: { name: true } }, property: { select: { name: true, unitCode: true, slug: true } } },
+      });
+      if (!lead) return;
+      const site = this.config.get('SITE_URL').replace(/\/$/, '');
+      const adminUrl = `${site}/admin/leads/${lead.id}/edit`;
+      const unit = lead.property ? `${lead.property.name}${lead.property.unitCode ? ` (${lead.property.unitCode})` : ''}` : '';
+      const rows: [string, string][] = [
+        ['Khách hàng', lead.name],
+        ['Số điện thoại', lead.phone ?? '—'],
+        ['Email', lead.email],
+        ['Nhu cầu', lead.intent ?? lead.source],
+        ['Dự án', lead.project?.name ?? '—'],
+        ['Căn hộ', unit || '—'],
+        ['Nguồn', lead.source],
+        ['Thời gian', lead.createdAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })],
+      ];
+      const esc = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#1f2d27;max-width:560px">
+<h2 style="color:#0d3128;margin:0 0 12px">Yêu cầu mới từ website</h2>
+<table cellpadding="8" style="border-collapse:collapse;width:100%;border:1px solid #e0e4d9">
+${rows.map(([k, v]) => `<tr><td style="background:#f4f6f3;width:130px;color:#56655d">${k}</td><td><strong>${esc(v)}</strong></td></tr>`).join('\n')}
+</table>
+<p style="margin:16px 0 6px;color:#56655d">Nội dung khách gửi:</p>
+<div style="white-space:pre-wrap;padding:12px;background:#fbfaf6;border-left:3px solid #c6a76b">${esc(lead.message)}</div>
+<p style="margin:18px 0">${lead.phone ? `<a href="tel:${esc(lead.phone)}" style="background:#0d3128;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;margin-right:8px">Gọi ${esc(lead.phone)}</a>` : ''}<a href="${adminUrl}" style="color:#0d3128">Mở trong Admin ›</a></p>
+<p style="color:#8a978f;font-size:12px">Email tự động từ website Đất Vàng Group. Trả lời email này sẽ gửi tới khách hàng.</p>
+</div>`;
+      const text = [
+        'Yêu cầu mới từ website',
+        ...rows.map(([k, v]) => `${k}: ${v}`),
+        '',
+        'Nội dung:',
+        lead.message,
+        '',
+        `Mở trong Admin: ${adminUrl}`,
+      ].join('\n');
+      await this.mail.send({
+        to,
+        replyTo: lead.email,
+        subject: `[Đất Vàng] Yêu cầu mới: ${lead.name}${lead.phone ? ` – ${lead.phone}` : ''}`,
+        html,
+        text,
+      });
+    } catch (err) {
+      this.logger.warn({ err: (err as Error).message }, 'new lead notification failed');
+    }
   }
 
   async subscribe(dto: NewsletterDto) {

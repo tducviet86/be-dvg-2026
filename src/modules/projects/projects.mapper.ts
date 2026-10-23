@@ -45,6 +45,7 @@ export function toPublicProject(p: ProjectRow) {
     coverImage: image(p.coverImage, alt),
     imageCredit: p.imageCredit,
     sourceUrl: p.sourceUrl,
+    facebookUrl: p.facebookUrl,
     gallery: p.images.map((i) => image(i.media, i.caption || `${p.name} ${i.sortOrder + 1}`)!),
     amenities: p.amenities.map((a) => a.name),
     highlights: p.highlights.map((h) => ({ title: h.title, text: h.text })),

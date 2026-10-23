@@ -52,6 +52,21 @@ describe('authorization', () => {
     await editor.put('/api/v1/admin/settings', { values: {} }).expect(403);
   });
 
+  it('staff phone numbers feed the unit contact list (editors can read it)', async () => {
+    const admin = await login(app, 'admin@dvg.test');
+    const users = (await admin.get('/api/v1/admin/users').expect(200)).body.data as { id: string; email: string }[];
+    const sales = users.find((u) => u.email === 'sales@dvg.test')!;
+    await admin.patch(`/api/v1/admin/users/${sales.id}`, { phone: 'abc' }).expect(400);
+    const saved = await admin.patch(`/api/v1/admin/users/${sales.id}`, { phone: '0905 123 456' }).expect(200);
+    expect(saved.body.data.phone).toBe('0905 123 456');
+    const editor = await login(app, 'editor@dvg.test');
+    const contacts = await editor.get('/api/v1/admin/users/contacts').expect(200);
+    expect(contacts.body.data).toEqual([{ id: sales.id, name: expect.any(String), phone: '0905 123 456' }]);
+    // Clearing the phone removes the person from the list.
+    await admin.patch(`/api/v1/admin/users/${sales.id}`, { phone: '' }).expect(200);
+    expect((await editor.get('/api/v1/admin/users/contacts').expect(200)).body.data).toEqual([]);
+  });
+
   it('public settings never expose private keys', async () => {
     const admin = await login(app, 'admin@dvg.test');
     await admin.put('/api/v1/admin/settings', { values: { 'company.hotline': '0911 29 69 79', 'leads.notificationEmail': 'sales@dvg.test' } }).expect(200);

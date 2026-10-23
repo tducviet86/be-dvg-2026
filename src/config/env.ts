@@ -61,6 +61,15 @@ export const envSchema = z
     /** Model for website translation (EN/KO/ZH): fast and cheap. */
     GEMINI_TRANSLATE_MODEL: z.string().regex(/^[\w.-]+$/).default('gemini-3.5-flash-lite'),
     /** Characters of NEW (uncached) text sent to Gemini per day; 0 = translation off. */
+    /** Outgoing mail (new customer requests). Empty SMTP_HOST = mail off. */
+    SMTP_HOST: z.string().optional().default(''),
+    SMTP_PORT: z.coerce.number().int().default(465),
+    SMTP_SECURE: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    SMTP_USER: z.string().optional().default(''),
+    SMTP_PASS: z.string().optional().default(''),
+    MAIL_FROM: z.string().optional().default(''),
+    /** Recipient when Admin › Cài đặt has no "Email tiếp nhận yêu cầu". */
+    LEADS_NOTIFY_EMAIL: z.string().optional().default(''),
     I18N_DAILY_CHAR_LIMIT: z.coerce.number().int().min(0).default(400_000),
     /** Rate limiting; may only be disabled for automated end-to-end runs. */
     THROTTLE_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),

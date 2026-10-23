@@ -197,7 +197,8 @@
         "text": "editorial copy written for the demo — needs business review",
         "map": "Google Maps links supplied by the company (FE project-locations.ts)",
         "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
-      }
+      },
+      "facebookUrl": "https://www.facebook.com/datvangmonarchy/"
     },
     {
       "legacyKey": "ponte",
@@ -246,7 +247,8 @@
         "text": "editorial copy written for the demo — needs business review",
         "map": "Google Maps links supplied by the company (FE project-locations.ts)",
         "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
-      }
+      },
+      "facebookUrl": "https://www.facebook.com/sunpontedn/"
     },
     {
       "legacyKey": "panoma",
@@ -295,7 +297,8 @@
         "text": "editorial copy written for the demo — needs business review",
         "map": "Google Maps links supplied by the company (FE project-locations.ts)",
         "image": "downloaded from the developer website (FE reports/project-image-sources.json) — usage rights to confirm"
-      }
+      },
+      "facebookUrl": "https://www.facebook.com/sunpanomadanang/"
     },
     {
       "legacyKey": "sam",

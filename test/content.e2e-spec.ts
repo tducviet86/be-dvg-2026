@@ -1,3 +1,4 @@
+import { createServer, type Server } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import sharp from 'sharp';
 import type request from 'supertest';
@@ -65,6 +66,76 @@ describe('lead intake', () => {
     expect(await prisma.auditLog.count({ where: { action: 'lead.export' } })).toBe(1);
   });
 
+  it('emails the team about a new website request (reply goes to the customer)', async () => {
+    // Minimal SMTP server: records what the API sends.
+    const mails: { from: string; to: string[]; data: string }[] = [];
+    const smtp: Server = createServer((socket) => {
+      let current = { from: '', to: [] as string[], data: '' };
+      let inData = false;
+      let buffer = '';
+      socket.write('220 test ESMTP\r\n');
+      socket.on('data', (chunk) => {
+        buffer += chunk.toString('utf8');
+        let index: number;
+        while ((index = buffer.indexOf('\r\n')) >= 0) {
+          const line = buffer.slice(0, index);
+          buffer = buffer.slice(index + 2);
+          if (inData) {
+            if (line === '.') {
+              inData = false;
+              mails.push(current);
+              current = { from: '', to: [], data: '' };
+              socket.write('250 queued\r\n');
+            } else current.data += `${line}\n`;
+          } else if (/^(EHLO|HELO)/i.test(line)) socket.write('250 test\r\n');
+          else if (/^MAIL FROM/i.test(line)) {
+            current.from = line;
+            socket.write('250 ok\r\n');
+          }
+          else if (/^RCPT TO/i.test(line)) {
+            current.to.push(line);
+            socket.write('250 ok\r\n');
+          }
+          else if (/^DATA/i.test(line)) {
+            inData = true;
+            socket.write('354 go\r\n');
+          }
+          else if (/^QUIT/i.test(line)) socket.end('221 bye\r\n');
+          else socket.write('250 ok\r\n');
+        }
+      });
+    });
+    await new Promise<void>((done) => smtp.listen(4198, '127.0.0.1', done));
+    try {
+      // No recipient configured: nothing is sent.
+      await http().post('/api/v1/inquiries').send(form()).expect(202);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(mails).toHaveLength(0);
+
+      await prisma.siteSetting.upsert({
+        where: { key: 'leads.notificationEmail' },
+        create: { key: 'leads.notificationEmail', value: 'sale@dvg.test' },
+        update: { value: 'sale@dvg.test' },
+      });
+      await prisma.project.create({ data: { slug: 'the-monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
+      await http()
+        .post('/api/v1/inquiries')
+        .send(form({ name: 'Lê <b>Khách</b>', message: 'Cần thuê căn 2 phòng ngủ từ tháng 11.', projectSlug: 'the-monarchy', intent: 'Tìm thuê bất động sản' }))
+        .expect(202);
+      await expect.poll(() => mails.length, { timeout: 5000 }).toBe(1);
+      const mail = mails[0]!;
+      expect(mail.to.join()).toContain('sale@dvg.test');
+      const raw = mail.data.replace(/=\n/g, '');
+      expect(raw).toMatch(/Reply-To: .*khach@example\.com/i);
+      expect(raw).toContain('0911296979');
+      expect(raw).toContain('/admin/leads/');
+      // Customer text is escaped in the HTML part.
+      expect(raw).not.toContain('<b>Kh');
+    } finally {
+      await new Promise((done) => smtp.close(done));
+    }
+  });
+
   it('newsletter subscription is idempotent', async () => {
     await http().post('/api/v1/newsletter').send({ email: 'a@example.com' }).expect(202);
     await http().post('/api/v1/newsletter').send({ email: 'A@example.com' }).expect(202);
@@ -78,6 +149,25 @@ describe('media library', () => {
     const ok = await admin.agent.post('/api/v1/admin/media/upload').set('x-csrf-token', admin.csrf).field('alt', 'Ảnh <b>thử</b>').attach('file', png, { filename: 'x.png', contentType: 'image/png' }).expect(201);
     expect(ok.body.data).toMatchObject({ mimeType: 'image/webp', width: 64, height: 40, alt: 'Ảnh thử' });
     expect(ok.body.data.key).toMatch(/^uploads\/\d{4}\/\d{2}\/[0-9a-f-]+\.webp$/);
+    // Uploaded for a unit: the file is named after its code (easy to find in a backup).
+    const named = await admin.agent
+      .post('/api/v1/admin/media/upload')
+      .set('x-csrf-token', admin.csrf)
+      .field('owner', 'property')
+      .field('code', 'MB029')
+      .attach('file', png, { filename: 'x.png', contentType: 'image/png' })
+      .expect(201);
+    expect(named.body.data.key).toMatch(/^can-ho\/MB029\/MB029-\d{8}-[0-9a-f]{8}\.webp$/);
+    // Codes are sanitised: no accents, spaces or path tricks.
+    const odd = await admin.agent
+      .post('/api/v1/admin/media/upload')
+      .set('x-csrf-token', admin.csrf)
+      .field('owner', 'project')
+      .field('code', 'Tòa Đông/../../etc')
+      .attach('file', png, { filename: 'x.png', contentType: 'image/png' })
+      .expect(201);
+    expect(odd.body.data.key).toMatch(/^du-an\/Toa-Dong-etc\/Toa-Dong-etc-\d{8}-[0-9a-f]{8}\.webp$/);
+    await admin.agent.post('/api/v1/admin/media/upload').set('x-csrf-token', admin.csrf).field('owner', 'x').attach('file', png, { filename: 'x.png', contentType: 'image/png' }).expect(400);
     const fake = Buffer.from('<svg onload=alert(1)></svg>');
     await admin.agent.post('/api/v1/admin/media/upload').set('x-csrf-token', admin.csrf).attach('file', fake, { filename: 'x.png', contentType: 'image/png' }).expect(415);
   });

@@ -14,6 +14,29 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif'])
 const VIDEO = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
 const MAX_DIMENSION = 2560;
 
+export type MediaOwner = 'property' | 'project' | 'post' | 'banner';
+const FOLDER: Record<MediaOwner, string> = { property: 'can-ho', project: 'du-an', post: 'bai-viet', banner: 'banner' };
+
+/** "Căn MB 029/A" → "Can-MB-029-A": safe in URLs and file systems, case kept. */
+const safeCode = (code = '') =>
+  code
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (c) => (c === 'đ' ? 'd' : 'D'))
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+export function mediaKey(place: { owner?: MediaOwner; code?: string }, ext: string, now = new Date()) {
+  const code = safeCode(place.code);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (place.owner && code) {
+    const day = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`;
+    return `${FOLDER[place.owner]}/${code}/${code}-${day}-${randomUUID().slice(0, 8)}.${ext}`;
+  }
+  return `uploads/${now.getUTCFullYear()}/${pad(now.getUTCMonth() + 1)}/${randomUUID()}.${ext}`;
+}
+
 @Injectable()
 export class MediaService {
   constructor(
@@ -27,9 +50,16 @@ export class MediaService {
    * Validates the real file signature (never the client MIME type or
    * extension). Images are re-encoded to WebP — which strips EXIF/GPS
    * metadata and any payload appended to the file. MP4/WebM videos are
-   * stored as uploaded (bounded by MAX_VIDEO_MB). Keys are random.
+   * stored as uploaded (bounded by MAX_VIDEO_MB). Keys name the record the
+   * file was uploaded for (can-ho/MB029/MB029-20261022-3f2a9c.webp), so a
+   * backup is easy to browse; without one they fall back to uploads/YYYY/MM.
    */
-  async upload(file: Express.Multer.File | undefined, alt: string | undefined, actorId: string) {
+  async upload(
+    file: Express.Multer.File | undefined,
+    alt: string | undefined,
+    actorId: string,
+    place: { owner?: MediaOwner; code?: string } = {},
+  ) {
     if (!file?.buffer?.length)
       throw new AppError(HttpStatus.BAD_REQUEST, 'BAD_REQUEST', 'Chưa chọn tệp.');
     const detected = await fileTypeFromBuffer(file.buffer);
@@ -73,8 +103,7 @@ export class MediaService {
       mimeType = 'image/webp';
       ext = 'webp';
     }
-    const now = new Date();
-    const key = `uploads/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}.${ext}`;
+    const key = mediaKey(place, ext);
     await this.storage.driver.put(key, data, mimeType);
     const asset = await this.prisma.mediaAsset.create({
       data: {

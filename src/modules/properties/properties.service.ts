@@ -84,9 +84,13 @@ const orderBy = (sort?: string): Prisma.PropertyOrderByWithRelationInput[] =>
       ? [{ rentPriceVnd: { sort: 'desc', nulls: 'last' } }]
       : sort === 'area'
         ? [{ areaM2: 'desc' }]
-        : sort === 'newest'
-          ? [{ publishedAt: 'desc' }]
-          : [{ createdAt: 'asc' }, { id: 'asc' }];
+        : // Default and "newest": real units before samples, latest listing first.
+          [
+            { isDemo: 'asc' },
+            { publishedAt: { sort: 'desc', nulls: 'last' } },
+            { createdAt: 'desc' },
+            { id: 'asc' },
+          ];
 const date = (value: string | null | undefined) =>
   value === undefined ? undefined : value === null ? null : new Date(`${value.slice(0, 10)}T00:00:00Z`);
 

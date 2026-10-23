@@ -47,7 +47,7 @@ const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
 /** Small batches answer in a few seconds; large ones can take a minute. */
 /** Keys whose values are identifiers or links, never visible text. */
-const SKIP_KEYS = /^(id|.*Id|slug|.*Slug|.*Url|url|href|src|email|phone|.*Phone|.*At|status|kind|code|.*Code|locale|categories|type|.*Vnd|expected.*)$/;
+const SKIP_KEYS = /^(amenities|id|.*Id|slug|.*Slug|.*Url|url|href|src|email|phone|.*Phone|.*At|status|kind|code|.*Code|locale|categories|type|.*Vnd|expected.*)$/;
 const NOT_TEXT = /^(https?:\/\/|\/|[a-z0-9]+(-[a-z0-9]+)+$|[0-9a-f-]{36}$|\d{4}-\d{2}-\d{2})/i;
 
 /** Visible text in a saved record (nested objects included), split by line. */

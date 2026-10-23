@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { BannersModule } from './modules/banners/banners.module.js';
 import { BlogModule } from './modules/blog/blog.module.js';
 import { I18nModule } from './modules/i18n/i18n.controller.js';
+import { MailModule } from './modules/mail/mail.service.js';
 import { HealthModule } from './modules/health/health.controller.js';
 import { LeadsModule } from './modules/leads/leads.controller.js';
 import { MediaModule } from './modules/media/media.module.js';
@@ -49,6 +50,7 @@ import { UsersModule } from './modules/users/users.module.js';
         (process.env.NODE_ENV === 'test' && process.env.TEST_THROTTLE !== '1'),
     }),
     AuditModule,
+    MailModule,
     I18nModule,
     RevalidationModule,
     AuthModule,

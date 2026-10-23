@@ -7,8 +7,10 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   CurrentUser,
@@ -24,14 +26,19 @@ import { PERMISSIONS } from '../auth/permissions.js';
 
 export const PASSWORD_MIN = 12;
 
+const PHONE = /^\+?[\d\s().-]{8,20}$/;
+const PHONE_MESSAGE = 'Số điện thoại chỉ gồm 8–20 chữ số và dấu cách, chấm, gạch.';
+
 class CreateUserDto {
   @IsEmail() @MaxLength(160) email: string;
   @IsString() @MinLength(2) @MaxLength(120) name: string;
+  @IsOptional() @ValidateIf((_, v) => v !== '' && v !== null) @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
   @IsString() @MinLength(PASSWORD_MIN) @MaxLength(200) password: string;
   @IsArray() @ArrayUnique() @IsString({ each: true }) roles: string[];
 }
 class UpdateUserDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string;
+  @IsOptional() @ValidateIf((_, v) => v !== '' && v !== null) @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
   @IsOptional() @IsEnum(UserStatus) status?: UserStatus;
   @IsOptional() @IsArray() @ArrayUnique() @IsString({ each: true }) roles?: string[];
   @IsOptional() @IsString() @MinLength(PASSWORD_MIN) @MaxLength(200) password?: string;
@@ -41,6 +48,7 @@ const select = {
   id: true,
   email: true,
   name: true,
+  phone: true,
   status: true,
   lastLoginAt: true,
   lockedUntil: true,
@@ -82,6 +90,19 @@ export class UsersController {
     };
   }
 
+  /** Staff who can be named as a unit's contact (name + phone). */
+  @Get('contacts')
+  @RequirePermissions(PERMISSIONS.contentRead)
+  async contacts() {
+    return {
+      data: await this.prisma.user.findMany({
+        where: { status: 'ACTIVE', phone: { not: null } },
+        select: { id: true, name: true, phone: true },
+        orderBy: { name: 'asc' },
+      }),
+    };
+  }
+
   @Post()
   @RequirePermissions(PERMISSIONS.usersManage)
   async create(@Body() dto: CreateUserDto, @CurrentUser() actor: AuthUser) {
@@ -93,6 +114,7 @@ export class UsersController {
       data: {
         email,
         name: dto.name.trim(),
+        phone: dto.phone?.trim() || null,
         passwordHash: await this.auth.hashPassword(dto.password),
         roles: { create: roles.map((r) => ({ roleId: r.id })) },
       },
@@ -123,6 +145,7 @@ export class UsersController {
         where: { id },
         data: {
           name: dto.name?.trim(),
+          ...(dto.phone !== undefined ? { phone: dto.phone?.trim() || null } : {}),
           status: dto.status,
           passwordHash: dto.password ? await this.auth.hashPassword(dto.password) : undefined,
           ...(dto.password || dto.status === 'ACTIVE' ? { failedLoginCount: 0, lockedUntil: null } : {}),
@@ -132,7 +155,7 @@ export class UsersController {
       // Disabling a user or resetting a password ends existing sessions.
       if (dto.status === 'DISABLED' || dto.password || roles)
         await tx.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
-      await this.audit.log({ actorId: actor.id, action: 'user.update', entityType: 'user', entityId: id, changes: { name: dto.name, status: dto.status, roles: dto.roles, passwordReset: !!dto.password } }, tx);
+      await this.audit.log({ actorId: actor.id, action: 'user.update', entityType: 'user', entityId: id, changes: { name: dto.name, phone: dto.phone, status: dto.status, roles: dto.roles, passwordReset: !!dto.password } }, tx);
       return updated;
     });
     return { data: user };

@@ -39,7 +39,9 @@ export function configureApp(app: NestExpressApplication) {
       exceptionFactory: (errors) => validationError(errors),
     }),
   );
-  if (config.get('STORAGE_DRIVER') === 'local')
+  // Local files are served in development even after switching to R2, so
+  // images uploaded before the switch keep working.
+  if (config.get('STORAGE_DRIVER') === 'local' || config.get('NODE_ENV') !== 'production')
     app.use('/media', express.static(resolve(config.get('LOCAL_MEDIA_DIR')), { immutable: true, maxAge: '365d', index: false, dotfiles: 'deny' }));
   app.enableShutdownHooks();
   return config;
