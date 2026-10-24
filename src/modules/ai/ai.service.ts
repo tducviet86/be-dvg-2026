@@ -109,19 +109,25 @@ export class AiService {
   }
 
   /**
-   * Asks Gemini for JSON matching `schema`. Retries once with
-   * GEMINI_FALLBACK_MODEL when the model is overloaded; throws AI_UNAVAILABLE
-   * (502) on failure.
+   * Asks Gemini for JSON matching `schema`. When a model is overloaded, over
+   * quota or too slow, the GEMINI_FALLBACK_MODEL list is tried in order;
+   * throws AI_UNAVAILABLE (502) when none answers.
    */
   async generateJson<T>(request: GeminiRequest & { model?: string }): Promise<T> {
     if (!this.enabled)
       throw new AppError(HttpStatus.SERVICE_UNAVAILABLE, 'AI_DISABLED', 'Chưa cấu hình khóa Gemini (GEMINI_API_KEY) cho máy chủ.');
     const model = request.model || this.model;
-    const fallback = this.config.get('GEMINI_FALLBACK_MODEL');
-    let result = await this.call(model, request);
-    if (!result.ok && result.retryable && fallback && fallback !== model) {
-      this.logger.warn({ model, fallback }, 'gemini overloaded, trying fallback model');
-      result = await this.call(fallback, request);
+    const fallbacks = this.config
+      .get('GEMINI_FALLBACK_MODEL')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
+    const models = [...new Set([model, ...fallbacks])];
+    let result = await this.call(models[0], request);
+    for (const next of models.slice(1)) {
+      if (result.ok || !result.retryable) break;
+      this.logger.warn({ model, fallback: next }, 'gemini unavailable, trying fallback model');
+      result = await this.call(next, request);
     }
     if (!result.ok) throw this.unavailable(result.message);
     try {
@@ -131,7 +137,7 @@ export class AiService {
     }
   }
 
-  /** One request to the Gemini Interactions API (POST /v1beta/interactions). */
+  /** One request to the Gemini Interactions API (POST /v1beta/interactions), one model. */
   private async call(
     model: string,
     request: GeminiRequest,
@@ -149,7 +155,8 @@ export class AiService {
           generation_config: { thinking_level: request.thinking ?? 'low' },
           response_format: { type: 'text', mime_type: 'application/json', schema: request.schema },
         }),
-        signal: AbortSignal.timeout(request.timeoutMs ?? 45_000),
+        // A model that hangs is given up on early so a fallback can answer.
+        signal: AbortSignal.timeout(request.timeoutMs ?? this.config.get('GEMINI_TIMEOUT_MS')),
       });
     } catch (err) {
       this.logger.warn({ err, model }, 'gemini request failed');

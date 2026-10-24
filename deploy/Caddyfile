@@ -1,0 +1,29 @@
+# HTTPS behind Cloudflare (proxy on, SSL/TLS mode "Full (strict)").
+# The certificate is a Cloudflare Origin Certificate saved in ./certs.
+{
+	# Certificates come from Cloudflare, not Let's Encrypt.
+	auto_https disable_certs
+}
+
+www.{$DOMAIN} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+{$DOMAIN} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	encode zstd gzip
+	# Admin uploads (videos up to 100 MB).
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy web:3000 {
+		# Visitor IP as seen by Cloudflare (rate limiting, lead spam checks).
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+	}
+	log {
+		output stdout
+		format json
+	}
+}

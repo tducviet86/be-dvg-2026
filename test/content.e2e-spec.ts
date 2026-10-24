@@ -239,4 +239,35 @@ describe('properties', () => {
     expect(type.code).toBe('2pn');
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
+
+  it('shows the editor badge and marks units many visitors look at as trending', async () => {
+    const project = await prisma.project.create({ data: { slug: 'panoma', name: 'Sun Panoma', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
+    const unit = (slug: string, extra = {}) =>
+      admin.post('/api/v1/admin/properties', { slug, name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED', ...extra }).expect(201);
+    const { body } = await unit('pn-hot', { highlight: 'exclusive' });
+    await unit('pn-demo', { isDemo: true });
+    await admin.post('/api/v1/admin/properties', { slug: 'pn-bad', name: 'Căn sai', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', highlight: 'sieu-hot' }).expect(400);
+    const browser = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1';
+    const view = (slug: string, ua = browser) => http().post(`/api/v1/properties/${slug}/view`).set('user-agent', ua).expect(204);
+    // 10 visits + 2 enquiries (worth 5 views each) reach the trending score of 20.
+    for (let n = 0; n < 9; n++) await view('pn-hot');
+    await view('pn-hot', 'Googlebot/2.1 (+http://www.google.com/bot.html)'); // not counted
+    await view('pn-demo'); // samples are not counted
+    await view('khong-ton-tai'); // unknown slug: silently ignored
+    let unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
+    expect(unitBody).toMatchObject({ highlight: 'exclusive', trending: false });
+    await view('pn-hot');
+    for (const email of ['a@example.com', 'b@example.com'])
+      await prisma.lead.create({ data: { kind: 'INQUIRY', source: 'Tư vấn căn hộ', name: 'Khách', email, message: 'Tôi muốn xem căn.', propertyId: body.data.id, consentAt: new Date() } });
+    unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
+    expect(unitBody.trending).toBe(true);
+    const list = (await http().get('/api/v1/properties?project=panoma').expect(200)).body.data;
+    expect(list.find((p: { slug: string }) => p.slug === 'pn-hot').trending).toBe(true);
+    const adminUnit = (await admin.get(`/api/v1/admin/properties/${body.data.id}`).expect(200)).body.data;
+    expect(adminUnit.interest).toEqual({ days: 14, views: 10, leads: 2 });
+    expect(await prisma.propertyViewDay.count()).toBe(1);
+    // The badge can be removed again.
+    await admin.patch(`/api/v1/admin/properties/${body.data.id}`, { highlight: null }).expect(200);
+    expect((await http().get('/api/v1/properties/pn-hot').expect(200)).body.data.highlight).toBeNull();
+  });
 });

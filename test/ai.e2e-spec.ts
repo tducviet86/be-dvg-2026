@@ -8,7 +8,7 @@ import { createApp, createUser, login, resetDb } from './helpers.js';
 let gemini: Server;
 let reply: { status: number; body: unknown };
 /** Replies served in order before falling back to `reply`. */
-let queue: { status: number; body: unknown }[] = [];
+let queue: { status: number; body: unknown; hang?: boolean }[] = [];
 const models: string[] = [];
 let lastRequest: { url?: string; key?: string; body?: any };
 
@@ -23,6 +23,8 @@ beforeAll(async () => {
       lastRequest = { url: req.url, key: req.headers['x-goog-api-key'] as string, body: JSON.parse(raw) };
       models.push(lastRequest.body.model);
       const next = queue.shift() ?? reply;
+      // A model that never answers: the client must give up and move on.
+      if ('hang' in next && next.hang) return;
       res.writeHead(next.status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(next.body));
     });
@@ -35,6 +37,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await app.close();
+  gemini.closeAllConnections();
   await new Promise((done) => gemini.close(done));
 });
 
@@ -85,7 +88,7 @@ describe('AI SEO suggestions', () => {
     await editor.post('/api/v1/admin/ai/seo-suggest', post).expect(502);
   });
 
-  it('retries once with the fallback model when the main one is overloaded', async () => {
+  it('tries the fallback models in order when the main one is overloaded or hangs', async () => {
     const editor = await login(app, 'editor@dvg.test');
     models.length = 0;
     queue = [{ status: 503, body: { error: { code: 'service_unavailable' } } }];
@@ -93,8 +96,17 @@ describe('AI SEO suggestions', () => {
     const res = await editor.post('/api/v1/admin/ai/seo-suggest', post).expect(200);
     expect(res.body.data.seoTitle).toBe('Thuê căn hộ Đà Nẵng');
     expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.5-flash']);
-    // Both overloaded: a clear, retryable message.
+    // Main model hangs, first fallback over quota: the last one answers.
+    models.length = 0;
     queue = [
+      { status: 0, body: {}, hang: true },
+      { status: 429, body: { error: { code: 'resource_exhausted' } } },
+    ];
+    await editor.post('/api/v1/admin/ai/seo-suggest', post).expect(200);
+    expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']);
+    // All overloaded: a clear, retryable message.
+    queue = [
+      { status: 503, body: {} },
       { status: 503, body: {} },
       { status: 503, body: {} },
     ];

@@ -28,6 +28,8 @@ const VND = /^\d{1,15}$/;
 const VIDEO_PATTERN =
   /^(?!.*\.\.)(https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\/\S+|https:\/\/\S+\.(mp4|webm)(\?\S*)?|\/images\/[\w./-]+\.(mp4|webm))$/i;
 const VND_MESSAGE = 'Số tiền phải là số nguyên VND không âm.';
+/** Badges an editor can put on a unit card. */
+export const HIGHLIGHTS = ['hot', 'exclusive', 'rare', 'good-price'] as const;
 
 export class CreatePropertyDto {
   @IsString() @Matches(SLUG_PATTERN, { message: 'Đường dẫn không hợp lệ.' }) @MaxLength(160) slug: string;
@@ -70,6 +72,7 @@ export class CreatePropertyDto {
   videoUrl?: string | null;
   @IsOptional() @Clean() @IsString() @MaxLength(120) seoTitle?: string | null;
   @IsOptional() @Clean() @IsString() @MaxLength(320) seoDescription?: string | null;
+  @IsOptional() @IsIn(HIGHLIGHTS, { message: 'Nhãn nổi bật không hợp lệ.' }) highlight?: (typeof HIGHLIGHTS)[number] | null;
 }
 export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {
   @IsOptional() @IsISO8601() expectedUpdatedAt?: string;

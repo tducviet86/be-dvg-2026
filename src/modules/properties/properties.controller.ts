@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators/auth.decorators.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -27,6 +28,15 @@ export class PropertiesController {
   @Get('properties/:slug')
   async get(@Param('slug') slug: string) {
     return { data: await this.properties.publicBySlug(slug) };
+  }
+
+  /** Called once per visit by the unit page; feeds "Đang được quan tâm". */
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('properties/:slug/view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async view(@Param('slug') slug: string, @Headers('user-agent') userAgent?: string) {
+    await this.properties.recordView(slug.slice(0, 200), userAgent);
   }
 
   @Get('admin/properties')

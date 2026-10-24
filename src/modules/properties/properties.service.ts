@@ -23,7 +23,19 @@ const include = {
 } as const satisfies Prisma.PropertyInclude;
 type Row = Prisma.PropertyGetPayload<{ include: typeof include }>;
 
-function toPublic(p: Row) {
+/**
+ * "Đang được quan tâm": views and enquiries over the last INTEREST_DAYS days,
+ * an enquiry weighing as much as LEAD_WEIGHT views.
+ */
+export const INTEREST_DAYS = 14;
+export const TRENDING_SCORE = 20;
+const LEAD_WEIGHT = 5;
+export type Interest = { views: number; leads: number };
+const trending = (i?: Interest) => !!i && i.views + i.leads * LEAD_WEIGHT >= TRENDING_SCORE;
+/** Crawlers and link previews do not count as interest. */
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|curl|wget|python|axios|node-fetch/i;
+
+function toPublic(p: Row, interest?: Interest) {
   const alt = p.coverImageAlt || `${p.name}${p.isDemo ? ' · Ảnh nội thất minh họa' : ''}`;
   return {
     id: p.id,
@@ -60,13 +72,16 @@ function toPublic(p: Row) {
     amenities: p.amenities.map((a) => a.name),
     videoUrl: p.videoUrl,
     seo: { title: p.seoTitle, description: p.seoDescription },
+    highlight: p.highlight,
+    trending: trending(interest),
     publishedAt: p.publishedAt,
     updatedAt: p.updatedAt,
   };
 }
-function toAdmin(p: Row) {
+function toAdmin(p: Row, interest?: Interest) {
   return {
-    ...toPublic(p),
+    ...toPublic(p, interest),
+    interest: { days: INTEREST_DAYS, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
     status: p.status,
     projectId: p.projectId,
     coverImageId: p.coverImageId,
@@ -132,7 +147,8 @@ export class PropertiesService {
         orderBy: { location: 'asc' },
       }),
     ]);
-    return { data: rows.map(toPublic), meta: { ...pageMeta(q.page, q.pageSize, total), locations: facets.map((f) => f.location) } };
+    const interest = await this.interest(rows.map((r) => r.id));
+    return { data: rows.map((r) => toPublic(r, interest.get(r.id))), meta: { ...pageMeta(q.page, q.pageSize, total), locations: facets.map((f) => f.location) } };
   }
 
   async publicBySlug(slug: string) {
@@ -140,7 +156,7 @@ export class PropertiesService {
     const live = (p: { status: string; deletedAt: Date | null; publishedAt: Date | null }) =>
       p.status === 'PUBLISHED' && !p.deletedAt && !!p.publishedAt && p.publishedAt <= new Date();
     if (row) {
-      if (live(row) && live(row.project)) return toPublic(row);
+      if (live(row) && live(row.project)) return toPublic(row, (await this.interest([row.id])).get(row.id));
       if (row.deletedAt || row.status === 'ARCHIVED') throw gone();
       throw notFound('Không tìm thấy căn hộ.');
     }
@@ -150,6 +166,45 @@ export class PropertiesService {
       if (target) throw new MovedError(`/api/v1/properties/${target.slug}`, target.slug);
     }
     throw notFound('Không tìm thấy căn hộ.');
+  }
+
+  /** Views and enquiries per unit over the last INTEREST_DAYS days. */
+  async interest(ids: string[]): Promise<Map<string, Interest>> {
+    const result = new Map<string, Interest>();
+    if (!ids.length) return result;
+    const since = new Date(Date.now() - INTEREST_DAYS * 86_400_000);
+    const [views, leads] = await Promise.all([
+      this.prisma.propertyViewDay.groupBy({
+        by: ['propertyId'],
+        where: { propertyId: { in: ids }, day: { gte: new Date(since.toISOString().slice(0, 10)) } },
+        _sum: { views: true },
+      }),
+      this.prisma.lead.groupBy({
+        by: ['propertyId'],
+        where: { propertyId: { in: ids }, createdAt: { gte: since }, deletedAt: null },
+        _count: { _all: true },
+      }),
+    ]);
+    const entry = (id: string) => result.get(id) ?? (result.set(id, { views: 0, leads: 0 }), result.get(id)!);
+    for (const v of views) entry(v.propertyId).views = v._sum.views ?? 0;
+    for (const l of leads) if (l.propertyId) entry(l.propertyId).leads = l._count._all;
+    return result;
+  }
+
+  /** Counts one page view of a live unit (sample units and crawlers excluded). */
+  async recordView(slug: string, userAgent = '') {
+    if (!userAgent || BOT.test(userAgent)) return;
+    const row = await this.prisma.property.findFirst({
+      where: { slug, isDemo: false, ...publishedWhere(), project: publishedWhere() },
+      select: { id: true },
+    });
+    if (!row) return;
+    const day = new Date(new Date().toISOString().slice(0, 10));
+    await this.prisma.propertyViewDay.upsert({
+      where: { propertyId_day: { propertyId: row.id, day } },
+      create: { propertyId: row.id, day, views: 1 },
+      update: { views: { increment: 1 } },
+    });
   }
 
   types() {
@@ -162,13 +217,14 @@ export class PropertiesService {
       this.prisma.property.findMany({ where, include, orderBy: orderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       this.prisma.property.count({ where }),
     ]);
-    return { data: rows.map(toAdmin), meta: pageMeta(q.page, q.pageSize, total) };
+    const interest = await this.interest(rows.map((r) => r.id));
+    return { data: rows.map((r) => toAdmin(r, interest.get(r.id))), meta: pageMeta(q.page, q.pageSize, total) };
   }
 
   async adminGet(id: string) {
     const row = await this.prisma.property.findFirst({ where: { id, deletedAt: null }, include });
     if (!row) throw notFound('Không tìm thấy căn hộ.');
-    return toAdmin(row);
+    return toAdmin(row, (await this.interest([row.id])).get(row.id));
   }
 
   async previewBySlug(slug: string) {
@@ -311,6 +367,7 @@ export class PropertiesService {
       videoUrl: dto.videoUrl,
       seoTitle: dto.seoTitle,
       seoDescription: dto.seoDescription,
+      highlight: dto.highlight,
     };
   }
 

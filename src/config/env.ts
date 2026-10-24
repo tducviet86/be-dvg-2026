@@ -55,8 +55,16 @@ export const envSchema = z
     /** Gemini API key for AI SEO suggestions; empty = feature off. */
     GEMINI_API_KEY: z.string().optional().default(''),
     GEMINI_MODEL: z.string().regex(/^[\w.-]+$/).default('gemini-3.8-flash'),
-    /** Tried once when the main model is overloaded (503/429); empty = none. */
-    GEMINI_FALLBACK_MODEL: z.string().regex(/^[\w.-]*$/).default('gemini-3.5-flash'),
+    /**
+     * Tried in order when the main model is overloaded, over quota or does
+     * not answer in time; comma-separated, empty = none.
+     */
+    GEMINI_FALLBACK_MODEL: z
+      .string()
+      .regex(/^[\w.,-]*$/)
+      .default('gemini-3.5-flash,gemini-3.5-flash-lite'),
+    /** How long one model may take before the next fallback is tried. */
+    GEMINI_TIMEOUT_MS: z.coerce.number().int().min(1000).default(20_000),
     GEMINI_API_BASE: z.string().url().default('https://generativelanguage.googleapis.com'),
     /** Model for website translation (EN/KO/ZH): fast and cheap. */
     GEMINI_TRANSLATE_MODEL: z.string().regex(/^[\w.-]+$/).default('gemini-3.5-flash-lite'),
