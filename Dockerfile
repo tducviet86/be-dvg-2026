@@ -33,6 +33,8 @@ FROM deps AS migrate
 COPY scripts ./scripts
 COPY src ./src
 COPY tsconfig.json ./
+# Seed and admin scripts import the generated client (src/generated is not copied).
+RUN npx prisma generate
 ENV NODE_ENV=production
 CMD ["npx", "prisma", "migrate", "deploy"]
 

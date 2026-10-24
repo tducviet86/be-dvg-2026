@@ -16,7 +16,7 @@ Khách ──HTTPS──► Cloudflare (DNS, CDN, chống DDoS, gói Free)
 Ảnh/video ──► Cloudflare R2 (media.datvanggroup.vn) — không nằm trên VPS
 ```
 
-- Chỉ mở cổng 22 (SSH), 80, 443. API và DB không ra Internet.
+- Chỉ mở cổng 24700 (SSH của iNET), 80, 443. API và DB không ra Internet.
 - Trình duyệt gọi API qua chính tên miền website (`/api/v1/...`), nên không cần tên miền `api.` riêng.
 - File cấu hình nằm trong `BE-DVG/deploy/`: `compose.prod.yaml`, `Caddyfile`, `env.prod.example`, `backup.sh`.
 
@@ -99,7 +99,7 @@ Các khóa R2 hiện tại đã từng xuất hiện trong ảnh chụp màn hì
 
 ## Bước 5 — Cài đặt VPS (SSH vào server)
 
-Từ Mac: `ssh root@IP_VPS`. iNET gửi mật khẩu root qua email.
+Từ Mac: `ssh -p 24700 root@IP_VPS`. iNET để SSH ở **cổng 24700**, không phải 22. Mật khẩu root iNET gửi qua email.
 
 ```bash
 # Cập nhật hệ thống, múi giờ Việt Nam
@@ -110,8 +110,9 @@ timedatectl set-timezone Asia/Ho_Chi_Minh
 adduser deploy
 usermod -aG sudo deploy
 
-# Tường lửa: chỉ SSH, HTTP, HTTPS
-ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable
+# Tường lửa: chỉ SSH (cổng 24700 của iNET), HTTP, HTTPS
+# KHÔNG dùng "ufw allow OpenSSH": lệnh đó chỉ mở cổng 22, sẽ khóa bạn ngoài VPS.
+ufw allow 24700/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable
 
 # Swap 4 GB (tránh hết RAM khi build)
 fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
@@ -126,10 +127,10 @@ mkdir -p /opt/dvg && chown deploy:deploy /opt/dvg
 ```
 
 Nên đăng nhập bằng SSH key thay vì mật khẩu:
-1. Trên Mac, chạy `ssh-copy-id deploy@IP_VPS`.
-2. Thử `ssh deploy@IP_VPS`. Vào được rồi mới tắt đăng nhập bằng mật khẩu: sửa `/etc/ssh/sshd_config`, đặt `PasswordAuthentication no` và `PermitRootLogin no`, rồi chạy `systemctl restart ssh`.
+1. Trên Mac, chạy `ssh-copy-id -p 24700 deploy@IP_VPS`.
+2. Thử `ssh -p 24700 deploy@IP_VPS`. Vào được rồi mới tắt đăng nhập bằng mật khẩu: sửa `/etc/ssh/sshd_config`, đặt `PasswordAuthentication no` và `PermitRootLogin no`, rồi chạy `systemctl restart ssh`.
 
-**Xong khi:** `ssh deploy@IP_VPS` rồi chạy `docker run --rm hello-world` thấy dòng *Hello from Docker!*.
+**Xong khi:** `ssh -p 24700 deploy@IP_VPS` rồi chạy `docker run --rm hello-world` thấy dòng *Hello from Docker!*.
 
 ---
 
@@ -202,7 +203,6 @@ alias dc='docker compose --env-file .env.prod -f compose.prod.yaml'   # gõ tắ
 
 dc build                      # lần đầu mất khoảng 5–15 phút
 dc up -d db                   # bật DB trước
-dc run --rm migrate           # tạo bảng (prisma migrate deploy)
 ```
 
 Tiếp theo chọn **A** hoặc **B**.
@@ -210,6 +210,7 @@ Tiếp theo chọn **A** hoặc **B**.
 ### A. Bắt đầu sạch (chưa có dữ liệu)
 
 ```bash
+dc run --rm migrate                          # tạo bảng (prisma migrate deploy)
 dc run --rm migrate npm run db:seed          # vai trò, quyền, danh mục
 dc run --rm -e ADMIN_EMAIL=ban@datvanggroup.vn -e ADMIN_NAME="Họ Tên" \
   -e ADMIN_PASSWORD='MatKhau-Manh-2026' migrate npm run admin:create
@@ -222,7 +223,7 @@ Trên **Mac**:
 ```bash
 pg_dump --format=custom --no-owner --no-acl \
   "postgresql://dvg:<mật-khẩu-dev>@127.0.0.1:5433/dvg_dev" -f ~/dvg-dev.dump
-scp ~/dvg-dev.dump deploy@IP_VPS:/opt/dvg/BE-DVG/deploy/backups/
+scp -P 24700 ~/dvg-dev.dump deploy@IP_VPS:/opt/dvg/BE-DVG/deploy/backups/
 ```
 
 Mật khẩu dev nằm trong `DATABASE_URL` của file `BE-DVG/.env`.
@@ -295,7 +296,7 @@ crontab -e
 ```
 
 - Script chạy mỗi đêm 2:30, giữ bản sao lưu 14 ngày trong `deploy/backups/`.
-- Bản sao lưu nằm cùng VPS. Mỗi tuần nên tải 1 bản về máy hoặc lên R2: `scp deploy@IP_VPS:/opt/dvg/BE-DVG/deploy/backups/dvg-*.dump ~/Backups/`.
+- Bản sao lưu nằm cùng VPS. Mỗi tuần nên tải 1 bản về máy hoặc lên R2: `scp -P 24700 deploy@IP_VPS:/opt/dvg/BE-DVG/deploy/backups/dvg-*.dump ~/Backups/`.
 - Ảnh/video đã nằm trên R2. Nên bật thêm sao lưu ảnh chụp VPS định kỳ (snapshot) ở trang iNET nếu gói có hỗ trợ.
 
 Khôi phục, chỉ làm khi thật cần và vào DB trống:
