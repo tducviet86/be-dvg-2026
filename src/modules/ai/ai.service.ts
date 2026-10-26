@@ -3,7 +3,7 @@ import { AppConfig } from '../../config/config.service.js';
 import { AppError } from '../../common/errors.js';
 import { plainText } from '../../common/utils/text.js';
 
-export type SeoKind = 'post' | 'project' | 'property';
+export type SeoKind = 'post' | 'project' | 'property' | 'page' | 'job';
 export type SeoInput = {
   kind: SeoKind;
   title: string;
@@ -37,6 +37,8 @@ const KIND_LABEL: Record<SeoKind, string> = {
   post: 'bài viết blog',
   project: 'trang giới thiệu dự án bất động sản',
   property: 'trang căn hộ cho thuê / bán',
+  page: 'trang giới thiệu doanh nghiệp / lĩnh vực hoạt động',
+  job: 'tin tuyển dụng (người đọc là ứng viên)',
 };
 
 const SYSTEM = `Bạn là biên tập viên SEO tiếng Việt cho website bất động sản Đất Vàng Group (Đà Nẵng).

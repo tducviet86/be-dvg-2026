@@ -64,4 +64,38 @@ export async function seedReference(prisma: PrismaClient) {
   ];
   for (const [i, [slug, name]] of blogCategories.entries())
     await prisma.blogCategory.upsert({ where: { slug }, create: { slug, name, sortOrder: i }, update: {} });
+  // "Lĩnh vực hoạt động": created once, then edited in Admin (never overwritten).
+  await prisma.staticPage.createMany({ data: SERVICES.map((s, i) => serviceRow(s, i)), skipDuplicates: true });
+}
+
+const SERVICES: [slug: string, title: string, intro: string, summary: string, inMenu: boolean, linkHref?: string][] = [
+  ['quan-ly-bat-dong-san', 'Quản lý vận hành bất động sản', 'Đồng hành từ tiếp nhận căn hộ, theo dõi vận hành đến báo cáo định kỳ, với quy trình rõ ràng và dễ theo dõi.', 'Tiếp nhận, vận hành và báo cáo định kỳ', true],
+  ['khai-thac-cho-thue', 'Khai thác căn hộ cho thuê', 'Kết nối căn hộ với nhu cầu phù hợp, hỗ trợ giới thiệu không gian, đón tiếp và chăm sóc người thuê.', 'Tìm khách thuê phù hợp, chăm sóc người thuê', true],
+  ['hop-tac-chu-so-huu', 'Hợp tác cùng chủ sở hữu', 'Lắng nghe mục tiêu của chủ sở hữu để xây dựng phương án hợp tác phù hợp với từng tài sản.', 'Ký gửi căn hộ để Đất Vàng khai thác', true, '/hop-tac-chu-so-huu'],
+  ['tu-van-dau-tu', 'Tư vấn đầu tư', 'Cùng xem xét mục tiêu, ngân sách và các yếu tố thị trường trước mỗi quyết định dài hạn.', 'Mục tiêu, ngân sách và thị trường', true],
+  ['toi-uu-khong-gian', 'Tối ưu không gian sống', 'Gợi ý bố trí nội thất, ánh sáng và công năng để mỗi mét vuông mang lại giá trị sử dụng.', 'Bố trí nội thất, ánh sáng và công năng', false],
+  ['cham-soc-bao-tri', 'Chăm sóc và bảo trì căn hộ', 'Lên lịch kiểm tra, ghi nhận hiện trạng và phối hợp bảo trì để duy trì trải nghiệm sống.', 'Kiểm tra định kỳ và phối hợp bảo trì', false],
+];
+function serviceRow([slug, title, intro, summary, inMenu, linkHref]: (typeof SERVICES)[number], i: number) {
+  return {
+    path: `dich-vu/${slug}`,
+    kind: 'SERVICE' as const,
+    title,
+    eyebrow: 'LĨNH VỰC HOẠT ĐỘNG',
+    intro,
+    summary,
+    sections: [
+      { heading: 'Phương án phù hợp với nhu cầu thực tế.', body: `${intro} Mỗi phương án bắt đầu bằng việc hiểu mục tiêu của bạn, các đặc điểm của tài sản và những nguồn lực sẵn có.` },
+      {
+        heading: 'Phạm vi phối hợp',
+        body: 'Tiếp nhận thông tin và xác định các ưu tiên.\nKhảo sát hiện trạng, làm rõ phạm vi và đầu mối công việc.\nĐề xuất kế hoạch, thời gian và cơ chế cập nhật.\nTheo dõi phản hồi và cùng điều chỉnh khi cần thiết.',
+      },
+      { heading: 'Minh bạch trước khi bắt đầu', body: 'Các chi phí và trách nhiệm cần được trao đổi theo từng trường hợp. Nội dung này là mô hình dịch vụ minh họa, không phải báo giá hoặc cam kết hiệu quả tài chính.' },
+    ],
+    sortOrder: (i + 1) * 10,
+    inMenu,
+    linkHref: linkHref ?? null,
+    status: 'PUBLISHED' as const,
+    publishedAt: new Date(),
+  };
 }

@@ -124,7 +124,7 @@ export class MediaService {
   }
 
   async usage(id: string) {
-    const [covers, gallery, propertyCovers, propertyImages, banners, posts] =
+    const [covers, gallery, propertyCovers, propertyImages, banners, posts, pages] =
       await Promise.all([
         this.prisma.project.count({ where: { coverImageId: id } }),
         this.prisma.projectImage.count({ where: { mediaId: id } }),
@@ -132,8 +132,9 @@ export class MediaService {
         this.prisma.propertyImage.count({ where: { mediaId: id } }),
         this.prisma.banner.count({ where: { OR: [{ imageId: id }, { mobileImageId: id }] } }),
         this.prisma.blogPost.count({ where: { coverImageId: id } }),
+        this.prisma.staticPage.count({ where: { coverImageId: id } }),
       ]);
-    return { projects: covers + gallery, properties: propertyCovers + propertyImages, banners, posts };
+    return { projects: covers + gallery, properties: propertyCovers + propertyImages, banners, posts, pages };
   }
 
   /** Refuses to delete media still referenced by any content. */

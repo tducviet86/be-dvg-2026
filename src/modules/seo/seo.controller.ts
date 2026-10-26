@@ -15,12 +15,17 @@ export class SeoController {
   async sitemap() {
     const live = publishedWhere();
     const { deletedAt: _d, ...pageLive } = live;
-    const [projects, properties, posts, categories, pages] = await Promise.all([
+    const [projects, properties, posts, categories, pages, jobs] = await Promise.all([
       this.prisma.project.findMany({ where: live, select: { slug: true, updatedAt: true, categories: { select: { category: { select: { code: true } } } } }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.property.findMany({ where: { ...live, isDemo: false, project: live }, select: { slug: true, updatedAt: true } }),
       this.prisma.blogPost.findMany({ where: { ...live, isDemo: false }, select: { slug: true, updatedAt: true } }),
       this.prisma.blogCategory.findMany({ where: { posts: { some: { ...live, isDemo: false } } }, select: { slug: true } }),
-      this.prisma.staticPage.findMany({ where: pageLive, select: { path: true, updatedAt: true } }),
+      // A service that opens another page (linkHref) has no URL of its own.
+      this.prisma.staticPage.findMany({ where: { ...pageLive, linkHref: null }, select: { path: true, updatedAt: true } }),
+      this.prisma.jobPosting.findMany({
+        where: { ...live, OR: [{ deadline: null }, { deadline: { gte: new Date(new Date().toISOString().slice(0, 10)) } }] },
+        select: { slug: true, updatedAt: true },
+      }),
     ]);
     return {
       data: {
@@ -29,6 +34,7 @@ export class SeoController {
         posts,
         blogCategories: categories.map((c) => c.slug),
         pages,
+        jobs,
       },
     };
   }

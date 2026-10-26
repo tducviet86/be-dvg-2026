@@ -11,7 +11,7 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { AiService, SEO_LIMITS, type SeoKind } from './ai.service.js';
 
 class SeoSuggestDto {
-  @IsIn(['post', 'project', 'property']) kind: SeoKind;
+  @IsIn(['post', 'project', 'property', 'page', 'job']) kind: SeoKind;
   @Clean() @IsString() @MinLength(2) @MaxLength(200) title: string;
   @IsOptional() @Clean() @IsString() @MaxLength(2000) summary?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(50000) content?: string;
@@ -22,6 +22,8 @@ const WRITE: Record<SeoKind, string> = {
   post: PERMISSIONS.blogWrite,
   project: PERMISSIONS.projectsWrite,
   property: PERMISSIONS.propertiesWrite,
+  page: PERMISSIONS.pagesWrite,
+  job: PERMISSIONS.pagesWrite,
 };
 
 @ApiTags('admin/ai')

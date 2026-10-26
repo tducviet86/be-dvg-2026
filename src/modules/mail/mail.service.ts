@@ -2,7 +2,15 @@ import { Global, Injectable, Logger, Module } from '@nestjs/common';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { AppConfig } from '../../config/config.service.js';
 
-export type Mail = { to: string; subject: string; html: string; text: string; replyTo?: string };
+export type Mail = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string;
+  /** e.g. the CV of a job application. */
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
+};
 
 /**
  * Sends mail through SMTP (e.g. Gmail with an app password). When SMTP is not

@@ -150,13 +150,14 @@ model MediaAsset {
   updatedAt   DateTime     @updatedAt @map("updated_at")
   createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
-  projectCovers   Project[]       @relation("ProjectCover")
-  projectImages   ProjectImage[]
-  propertyCovers  Property[]      @relation("PropertyCover")
-  propertyImages  PropertyImage[]
-  bannerDesktop   Banner[]        @relation("BannerImage")
-  bannerMobile    Banner[]        @relation("BannerMobileImage")
-  postCovers      BlogPost[]      @relation("PostCover")
+  projectCovers  Project[]       @relation("ProjectCover")
+  projectImages  ProjectImage[]
+  propertyCovers Property[]      @relation("PropertyCover")
+  propertyImages PropertyImage[]
+  bannerDesktop  Banner[]        @relation("BannerImage")
+  bannerMobile   Banner[]        @relation("BannerMobileImage")
+  postCovers     BlogPost[]      @relation("PostCover")
+  pageCovers     StaticPage[]    @relation("PageCover")
 
   @@index([createdAt])
   @@map("media_assets")
@@ -166,10 +167,10 @@ model MediaAsset {
 
 /// Overlapping classifications: development, operation, sale, rent.
 model ProjectCategory {
-  id        String                   @id @default(uuid()) @db.Uuid
-  code      String                   @unique
+  id        String                     @id @default(uuid()) @db.Uuid
+  code      String                     @unique
   name      String
-  sortOrder Int                      @default(0) @map("sort_order")
+  sortOrder Int                        @default(0) @map("sort_order")
   projects  ProjectCategoryOnProject[]
 
   @@map("project_categories")
@@ -460,8 +461,8 @@ model BlogCategory {
 }
 
 model BlogTag {
-  id    String          @id @default(uuid()) @db.Uuid
-  slug  String          @unique
+  id    String        @id @default(uuid()) @db.Uuid
+  slug  String        @unique
   name  String
   posts BlogPostTag[]
 
@@ -508,21 +509,112 @@ model BlogPostTag {
 }
 
 /// Company/editorial pages addressed by their URL path (e.g. "gioi-thieu/doi-ngu").
+/// PAGE: company pages (Giới thiệu, Đội ngũ…); SERVICE: "Lĩnh vực hoạt động" (path dich-vu/<slug>).
+enum PageKind {
+  PAGE
+  SERVICE
+}
+
 model StaticPage {
   id             String        @id @default(uuid()) @db.Uuid
   path           String        @unique
+  kind           PageKind      @default(PAGE)
   title          String
   eyebrow        String?
   intro          String
+  /// Short line for cards and the header menu.
+  summary        String?
   sections       Json          @default("[]") // [{ heading, body }]
+  coverImageId   String?       @map("cover_image_id") @db.Uuid
+  sortOrder      Int           @default(0) @map("sort_order")
+  /// Services: listed in the header "Lĩnh vực hoạt động" dropdown.
+  inMenu         Boolean       @default(false) @map("in_menu")
+  /// Optional page opened instead of the default URL (e.g. /hop-tac-chu-so-huu).
+  linkHref       String?       @map("link_href")
   status         PublishStatus @default(DRAFT)
   publishedAt    DateTime?     @map("published_at")
   seoTitle       String?       @map("seo_title")
   seoDescription String?       @map("seo_description")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
+  coverImage     MediaAsset?   @relation("PageCover", fields: [coverImageId], references: [id], onDelete: SetNull)
 
+  @@index([kind, status, sortOrder])
   @@map("static_pages")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  CONTRACT
+}
+
+enum ApplicationStatus {
+  NEW
+  REVIEWING
+  INTERVIEW
+  HIRED
+  REJECTED
+}
+
+model JobPosting {
+  id             String           @id @default(uuid()) @db.Uuid
+  slug           String           @unique
+  title          String
+  /// Free text, e.g. "Kinh doanh", "Marketing", "Phiên dịch" (used as a filter).
+  department     String
+  location       String
+  employmentType EmploymentType   @default(FULL_TIME) @map("employment_type")
+  salaryMinVnd   BigInt?          @map("salary_min_vnd") // per month
+  salaryMaxVnd   BigInt?          @map("salary_max_vnd")
+  /// e.g. "Thỏa thuận", "+ hoa hồng" (shown next to the range).
+  salaryNote     String?          @map("salary_note")
+  openings       Int?
+  /// Last day to apply; the posting closes after it.
+  deadline       DateTime?        @db.Date
+  summary        String
+  description    String
+  requirements   String
+  benefits       String
+  status         PublishStatus    @default(DRAFT)
+  publishedAt    DateTime?        @map("published_at")
+  seoTitle       String?          @map("seo_title")
+  seoDescription String?          @map("seo_description")
+  deletedAt      DateTime?        @map("deleted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  applications   JobApplication[]
+
+  @@index([status, deletedAt])
+  @@map("job_postings")
+}
+
+/// A CV sent from the website. The file lives here (not in the public media
+/// bucket) so only signed-in staff can download it.
+model JobApplication {
+  id        String            @id @default(uuid()) @db.Uuid
+  jobId     String?           @map("job_id") @db.Uuid
+  name      String
+  email     String
+  phone     String
+  message   String?
+  cvData    Bytes?            @map("cv_data")
+  cvName    String?           @map("cv_name")
+  cvMime    String?           @map("cv_mime")
+  cvSize    Int?              @map("cv_size")
+  status    ApplicationStatus @default(NEW)
+  notes     String?
+  consentAt DateTime          @map("consent_at")
+  ipHash    String?           @map("ip_hash")
+  userAgent String?           @map("user_agent")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  job       JobPosting?       @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([jobId])
+  @@map("job_applications")
 }
 
 model SiteSetting {

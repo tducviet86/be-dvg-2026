@@ -16,6 +16,7 @@ import { MailModule } from './modules/mail/mail.service.js';
 import { HealthModule } from './modules/health/health.controller.js';
 import { LeadsModule } from './modules/leads/leads.controller.js';
 import { MediaModule } from './modules/media/media.module.js';
+import { JobsModule } from './modules/jobs/jobs.controller.js';
 import { PagesModule } from './modules/pages/pages.controller.js';
 import { ProjectsModule } from './modules/projects/projects.module.js';
 import { PropertiesModule } from './modules/properties/properties.module.js';
@@ -61,6 +62,7 @@ import { UsersModule } from './modules/users/users.module.js';
     PropertiesModule,
     BlogModule,
     PagesModule,
+    JobsModule,
     SettingsModule,
     LeadsModule,
     SeoModule,
