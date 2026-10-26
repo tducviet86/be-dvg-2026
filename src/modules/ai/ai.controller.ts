@@ -18,6 +18,12 @@ class SeoSuggestDto {
   @IsOptional() @Clean() @IsString() @MaxLength(1000) context?: string;
 }
 
+class UnitDescriptionDto {
+  /** The unit's facts as typed in Admin, one per line ("Diện tích: 70 m²"). */
+  @Clean() @IsString() @MinLength(10) @MaxLength(4000) facts: string;
+  @IsIn(['rent', 'sale', 'both']) listing: 'rent' | 'sale' | 'both';
+}
+
 const WRITE: Record<SeoKind, string> = {
   post: PERMISSIONS.blogWrite,
   project: PERMISSIONS.projectsWrite,
@@ -55,6 +61,22 @@ export class AiController {
       changes: { model: this.ai.model, title: dto.title.slice(0, 120), chars: (dto.content ?? '').length },
     });
     return { data: suggestion };
+  }
+
+  /** Drafts a unit description from its facts. Nothing is saved. */
+  @Post('unit-description')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RequirePermissions(PERMISSIONS.propertiesWrite)
+  async unitDescription(@Body() dto: UnitDescriptionDto, @CurrentUser() user: AuthUser) {
+    const description = await this.ai.describeUnit(dto.facts, dto.listing);
+    await this.audit.log({
+      actorId: user.id,
+      action: 'ai.unit_description',
+      entityType: 'property',
+      changes: { model: this.ai.model, chars: dto.facts.length },
+    });
+    return { data: { description } };
   }
 }
 

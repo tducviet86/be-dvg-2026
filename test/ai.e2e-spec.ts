@@ -114,6 +114,27 @@ describe('AI SEO suggestions', () => {
     expect(busy.body.error.message).toMatch(/quá tải/);
   });
 
+  it('drafts a unit description as an opening line and key points', async () => {
+    const editor = await login(app, 'editor@dvg.test');
+    models.length = 0;
+    queue = [];
+    reply = answer({
+      intro: 'Căn hộ 2 phòng ngủ view sông Hàn, nội thất đầy đủ.',
+      points: ['- Phòng khách rộng, ban công hướng sông.', 'Bếp mở, đầy đủ thiết bị.', '', '• Phù hợp gia đình nhỏ.'],
+    });
+    const facts = 'Dự án: Sun Panoma\nLoại: 2 phòng ngủ\nDiện tích: 70 m²\nNội thất: Đầy đủ nội thất\nTiện nghi: Ban công, View sông';
+    const res = await editor.post('/api/v1/admin/ai/unit-description', { facts, listing: 'rent' }).expect(200);
+    expect(res.body.data.description).toBe(
+      'Căn hộ 2 phòng ngủ view sông Hàn, nội thất đầy đủ.\n\n- Phòng khách rộng, ban công hướng sông.\n- Bếp mở, đầy đủ thiết bị.\n- Phù hợp gia đình nhỏ.',
+    );
+    expect(lastRequest.body.input).toContain('Diện tích: 70 m²');
+    expect(lastRequest.body.system_instruction).toContain('KHÔNG bịa');
+    expect(lastRequest.body.system_instruction).toContain('cho thuê');
+    await editor.post('/api/v1/admin/ai/unit-description', { facts: 'ngắn', listing: 'rent' }).expect(400);
+    const sales = await login(app, 'sales@dvg.test');
+    await sales.post('/api/v1/admin/ai/unit-description', { facts, listing: 'rent' }).expect(403);
+  });
+
   it('requires write access to the content type', async () => {
     const sales = await login(app, 'sales@dvg.test');
     await sales.post('/api/v1/admin/ai/seo-suggest', post).expect(403);
