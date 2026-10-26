@@ -63,20 +63,20 @@ export class AiController {
     return { data: suggestion };
   }
 
-  /** Drafts a unit description from its facts. Nothing is saved. */
+  /** Drafts a unit title and description from its facts. Nothing is saved. */
   @Post('unit-description')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @RequirePermissions(PERMISSIONS.propertiesWrite)
   async unitDescription(@Body() dto: UnitDescriptionDto, @CurrentUser() user: AuthUser) {
-    const description = await this.ai.describeUnit(dto.facts, dto.listing);
+    const { title, description } = await this.ai.describeUnit(dto.facts, dto.listing);
     await this.audit.log({
       actorId: user.id,
       action: 'ai.unit_description',
       entityType: 'property',
       changes: { model: this.ai.model, chars: dto.facts.length },
     });
-    return { data: { description } };
+    return { data: { title, description } };
   }
 }
 

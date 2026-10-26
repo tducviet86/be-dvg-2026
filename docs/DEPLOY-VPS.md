@@ -327,6 +327,36 @@ docker image prune -f          # dọn image cũ
 
 Quay lại bản trước: `git checkout <commit-cũ>` ở repo bị lỗi, rồi chạy lại `dc build && dc up -d`.
 
+## Tăng tốc qua Cloudflare (Cache Rules, làm một lần)
+
+Gói Free đưa khách Việt Nam qua máy chủ Cloudflare ở Singapore, Hồng Kông, có khi cả châu Âu. Mỗi file phải đi vòng như vậy về VPS thì chậm. Hai thiết lập dưới đây giữ sẵn file và ảnh ở Cloudflare, khách không phải đợi VPS nữa. Cả hai đều miễn phí.
+
+**1. Smart Tiered Cache:** Cloudflare › chọn `datvanggroup.vn` › **Caching › Tiered Cache** › bật **Smart Tiered Caching Topology**.
+
+**2. Cache Rule:** **Caching › Cache Rules › Create rule**
+
+- Rule name: `DVG static & images`
+- **If incoming requests match… › Custom filter expression** › bấm **Edit expression**, dán:
+
+  ```
+  starts_with(http.request.uri.path, "/_next/static/") or starts_with(http.request.uri.path, "/_next/image") or starts_with(http.request.uri.path, "/images/")
+  ```
+
+- **Cache eligibility:** chọn **Eligible for cache**.
+- **Edge TTL:** **Use cache-control header if present, use default Cloudflare caching behavior if not**.
+- **Browser TTL:** **Respect origin TTL**.
+- Bấm **Deploy**.
+
+Không thêm `/`, trang HTML hay `/api` vào rule này: trang phải luôn lấy dữ liệu mới, còn API có đăng nhập.
+
+Kiểm tra sau khi deploy (chạy 2 lần, lần 2 phải thấy `cf-cache-status: HIT`):
+
+```bash
+curl -sI "https://datvanggroup.vn/_next/image?url=%2Fimages%2Fprojects%2Fcapital.jpg&w=1920&q=70" | grep -i cf-cache-status
+```
+
+Nếu sửa ảnh trong `public/images` mà giữ nguyên tên file, vào **Caching › Configuration › Purge Cache › Custom Purge** và dán đường dẫn ảnh đó. Ảnh tải lên từ Admin (R2) có tên mới mỗi lần nên không cần làm việc này.
+
 ## Lệnh hay dùng
 
 | Việc | Lệnh |

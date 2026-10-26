@@ -1,11 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { pageMeta } from '../../common/dto/pagination.dto.js';
 import { badRequest, forbidden, gone, MovedError, notFound } from '../../common/errors.js';
 import { assertFresh, image, publishedWhere, publishFields } from '../../common/utils/content.js';
 import { decimal, isoDate, money, toBigInt } from '../../common/utils/serialize.js';
-import { normalize } from '../../common/utils/text.js';
+import { normalize, slugify } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
-import { slugTaken } from '../../common/validation.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -236,12 +236,16 @@ export class PropertiesService {
   async create(dto: CreatePropertyDto, user: AuthUser) {
     this.assertPublishRight(dto.status, undefined, user);
     const id = await this.prisma.$transaction(async (tx) => {
-      if (await tx.property.findUnique({ where: { slug: dto.slug }, select: { id: true } })) throw slugTaken();
       const refs = await this.references(tx, dto);
+      const newId = randomUUID();
+      const unitCode = dto.unitCode || (await this.autoUnitCode(tx, newId));
+      const slug = await this.freeSlug(tx, dto.slug || dto.name, unitCode);
       const row = await tx.property.create({
         data: {
           ...this.scalars(dto),
-          slug: dto.slug,
+          id: newId,
+          unitCode,
+          slug,
           name: dto.name,
           location: dto.location,
           areaM2: dto.areaM2,
@@ -250,13 +254,13 @@ export class PropertiesService {
           description: dto.description,
           projectId: dto.projectId,
           propertyTypeId: refs.typeId!,
-          searchText: this.searchText(dto.name, dto.unitCode, dto.location, refs.projectName),
+          searchText: this.searchText(dto.name, unitCode, dto.location, refs.projectName),
           ...publishFields(dto.status ?? 'DRAFT'),
         },
       });
       await this.relations(tx, row.id, dto);
-      await tx.slugRedirect.deleteMany({ where: { entityType: 'PROPERTY', fromSlug: dto.slug } });
-      await this.audit.log({ actorId: user.id, action: 'property.create', entityType: 'property', entityId: row.id, changes: { slug: dto.slug, projectId: dto.projectId } }, tx);
+      await tx.slugRedirect.deleteMany({ where: { entityType: 'PROPERTY', fromSlug: slug } });
+      await this.audit.log({ actorId: user.id, action: 'property.create', entityType: 'property', entityId: row.id, changes: { slug, unitCode, projectId: dto.projectId } }, tx);
       return row.id;
     });
     await this.revalidation.trigger('properties', 'projects');
@@ -270,13 +274,16 @@ export class PropertiesService {
       if (!existing) throw notFound('Không tìm thấy căn hộ.');
       assertFresh(existing.updatedAt, dto.expectedUpdatedAt);
       this.assertPublishRight(dto.status, existing.status, user);
-      if (dto.slug && dto.slug !== existing.slug && (await tx.property.findUnique({ where: { slug: dto.slug }, select: { id: true } }))) throw slugTaken();
       const refs = await this.references(tx, dto);
+      // An empty unit code gets one; a slug already in use gets the unit code added.
+      const unitCode = (dto.unitCode === undefined ? existing.unitCode : dto.unitCode) || (await this.autoUnitCode(tx, id));
+      const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, unitCode, id) : undefined;
       await tx.property.update({
         where: { id },
         data: {
           ...this.scalars(dto),
-          slug: dto.slug,
+          unitCode,
+          slug,
           name: dto.name,
           location: dto.location,
           areaM2: dto.areaM2,
@@ -285,12 +292,12 @@ export class PropertiesService {
           description: dto.description,
           projectId: dto.projectId,
           propertyTypeId: refs.typeId,
-          searchText: this.searchText(dto.name ?? existing.name, dto.unitCode === undefined ? existing.unitCode : dto.unitCode, dto.location ?? existing.location, refs.projectName ?? existing.project.name),
+          searchText: this.searchText(dto.name ?? existing.name, unitCode, dto.location ?? existing.location, refs.projectName ?? existing.project.name),
           ...publishFields(dto.status, existing),
         },
       });
-      if (dto.slug && dto.slug !== existing.slug) {
-        await tx.slugRedirect.deleteMany({ where: { entityType: 'PROPERTY', fromSlug: dto.slug } });
+      if (slug) {
+        await tx.slugRedirect.deleteMany({ where: { entityType: 'PROPERTY', fromSlug: slug } });
         await tx.slugRedirect.upsert({
           where: { entityType_fromSlug: { entityType: 'PROPERTY', fromSlug: existing.slug } },
           create: { entityType: 'PROPERTY', fromSlug: existing.slug, entityId: id },
@@ -339,6 +346,36 @@ export class PropertiesService {
     }
     if (dto.forRent === false && dto.forSale === false) throw badRequest('Căn hộ cần ít nhất một hình thức: cho thuê hoặc bán.');
     return { typeId, projectName };
+  }
+
+  /**
+   * Unit code when the editor leaves it empty: "DVG-" and the last 4
+   * characters of the id (more of them if another unit already uses it).
+   */
+  private async autoUnitCode(tx: Prisma.TransactionClient, id: string) {
+    const hex = id.replace(/-/g, '').toUpperCase();
+    for (const length of [4, 6, 8]) {
+      const code = `DVG-${hex.slice(-length)}`;
+      if (!(await tx.property.findFirst({ where: { unitCode: code }, select: { id: true } }))) return code;
+    }
+    return `DVG-${hex}`;
+  }
+
+  /**
+   * A free slug from `base` (the typed slug or the unit name). When another
+   * unit has it, the unit code is added ("can-2pn-view-song-a-12-05"), then
+   * a number.
+   */
+  private async freeSlug(tx: Prisma.TransactionClient, base: string, unitCode: string, selfId?: string) {
+    const taken = async (slug: string) => {
+      const row = await tx.property.findUnique({ where: { slug }, select: { id: true } });
+      return !!row && row.id !== selfId;
+    };
+    const root = slugify(base).slice(0, 120).replace(/-+$/, '') || 'can-ho';
+    if (!(await taken(root))) return root;
+    const withCode = `${root}-${slugify(unitCode)}`.slice(0, 150).replace(/-+$/, '');
+    if (!(await taken(withCode))) return withCode;
+    for (let n = 2; ; n++) if (!(await taken(`${withCode}-${n}`))) return `${withCode}-${n}`;
   }
 
   private scalars(dto: UpdatePropertyDto) {

@@ -240,6 +240,29 @@ describe('properties', () => {
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
 
+  it('makes the slug and unit code when the editor leaves them empty', async () => {
+    const project = await prisma.project.create({ data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
+    const base = { name: 'Căn 2PN view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.' };
+    const create = (extra = {}) => admin.post('/api/v1/admin/properties', { ...base, ...extra }).expect(201).then((r) => r.body.data);
+    const first = await create();
+    expect(first.slug).toBe('can-2pn-view-song-han');
+    // No code typed: "DVG-" + the last 4 characters of the id.
+    expect(first.unitCode).toBe(`DVG-${first.id.replace(/-/g, '').slice(-4).toUpperCase()}`);
+    // Same name: the unit code is added to the slug.
+    const second = await create({ unitCode: 'A-12.05' });
+    expect(second).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: 'A-12.05' });
+    const third = await create({ unitCode: 'A-12.05' });
+    expect(third.slug).toBe('can-2pn-view-song-han-a-12-05-2');
+    // A typed slug that is taken also gets the code instead of an error.
+    const typed = await create({ slug: 'can-2pn-view-song-han', unitCode: 'B-03' });
+    expect(typed.slug).toBe('can-2pn-view-song-han-b-03');
+    // Saving with the code cleared gives the unit a code again; an unchanged slug stays.
+    const saved = await admin.patch(`/api/v1/admin/properties/${second.id}`, { unitCode: null }).expect(200);
+    expect(saved.body.data).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: `DVG-${second.id.replace(/-/g, '').slice(-4).toUpperCase()}` });
+    const renamed = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-2pn-view-song-han' }).expect(200);
+    expect(renamed.body.data.slug).toBe('can-2pn-view-song-han-b-03');
+  });
+
   it('shows the editor badge and marks units many visitors look at as trending', async () => {
     const project = await prisma.project.create({ data: { slug: 'panoma', name: 'Sun Panoma', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const unit = (slug: string, extra = {}) =>

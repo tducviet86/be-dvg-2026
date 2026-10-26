@@ -32,7 +32,8 @@ const VND_MESSAGE = 'Số tiền phải là số nguyên VND không âm.';
 export const HIGHLIGHTS = ['hot', 'exclusive', 'rare', 'good-price'] as const;
 
 export class CreatePropertyDto {
-  @IsString() @Matches(SLUG_PATTERN, { message: 'Đường dẫn không hợp lệ.' }) @MaxLength(160) slug: string;
+  /** Left out: made from the name (plus the unit code when already taken). */
+  @IsOptional() @IsString() @Matches(SLUG_PATTERN, { message: 'Đường dẫn không hợp lệ.' }) @MaxLength(160) slug?: string;
   @Clean() @IsString() @MinLength(2) @MaxLength(160) name: string;
   @IsUUID() projectId: string;
   @IsString() propertyType: string; // code

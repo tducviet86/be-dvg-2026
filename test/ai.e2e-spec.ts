@@ -114,11 +114,12 @@ describe('AI SEO suggestions', () => {
     expect(busy.body.error.message).toMatch(/quá tải/);
   });
 
-  it('drafts a unit description as an opening line and key points', async () => {
+  it('drafts a unit title, an opening line and key points', async () => {
     const editor = await login(app, 'editor@dvg.test');
     models.length = 0;
     queue = [];
     reply = answer({
+      title: 'Căn 2PN view sông Hàn, full nội thất tại Sun Panoma.',
       intro: 'Căn hộ 2 phòng ngủ view sông Hàn, nội thất đầy đủ.',
       points: ['- Phòng khách rộng, ban công hướng sông.', 'Bếp mở, đầy đủ thiết bị.', '', '• Phù hợp gia đình nhỏ.'],
     });
@@ -127,6 +128,8 @@ describe('AI SEO suggestions', () => {
     expect(res.body.data.description).toBe(
       'Căn hộ 2 phòng ngủ view sông Hàn, nội thất đầy đủ.\n\n- Phòng khách rộng, ban công hướng sông.\n- Bếp mở, đầy đủ thiết bị.\n- Phù hợp gia đình nhỏ.',
     );
+    // No trailing full stop on a title.
+    expect(res.body.data.title).toBe('Căn 2PN view sông Hàn, full nội thất tại Sun Panoma');
     expect(lastRequest.body.input).toContain('Diện tích: 70 m²');
     expect(lastRequest.body.system_instruction).toContain('KHÔNG bịa');
     expect(lastRequest.body.system_instruction).toContain('cho thuê');
