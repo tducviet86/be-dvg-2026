@@ -278,12 +278,13 @@ describe('properties', () => {
     await view('pn-demo'); // samples are not counted
     await view('khong-ton-tai'); // unknown slug: silently ignored
     let unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
-    expect(unitBody).toMatchObject({ highlight: 'exclusive', trending: false });
+    expect(unitBody).toMatchObject({ highlight: 'exclusive', trending: false, interestScore: 9 });
     await view('pn-hot');
     for (const email of ['a@example.com', 'b@example.com'])
       await prisma.lead.create({ data: { kind: 'INQUIRY', source: 'Tư vấn căn hộ', name: 'Khách', email, message: 'Tôi muốn xem căn.', propertyId: body.data.id, consentAt: new Date() } });
     unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
     expect(unitBody.trending).toBe(true);
+    expect(unitBody.interestScore).toBe(20);
     const list = (await http().get('/api/v1/properties?project=panoma').expect(200)).body.data;
     expect(list.find((p: { slug: string }) => p.slug === 'pn-hot').trending).toBe(true);
     const adminUnit = (await admin.get(`/api/v1/admin/properties/${body.data.id}`).expect(200)).body.data;

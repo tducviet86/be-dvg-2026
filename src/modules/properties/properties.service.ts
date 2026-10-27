@@ -31,7 +31,8 @@ export const INTEREST_DAYS = 14;
 export const TRENDING_SCORE = 20;
 const LEAD_WEIGHT = 5;
 export type Interest = { views: number; leads: number };
-const trending = (i?: Interest) => !!i && i.views + i.leads * LEAD_WEIGHT >= TRENDING_SCORE;
+const interestScore = (i?: Interest) => (i ? i.views + i.leads * LEAD_WEIGHT : 0);
+const trending = (i?: Interest) => interestScore(i) >= TRENDING_SCORE;
 /** Crawlers and link previews do not count as interest. */
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|curl|wget|python|axios|node-fetch/i;
 
@@ -74,6 +75,8 @@ function toPublic(p: Row, interest?: Interest) {
     seo: { title: p.seoTitle, description: p.seoDescription },
     highlight: p.highlight,
     trending: trending(interest),
+    /** Views + LEAD_WEIGHT × enquiries over INTEREST_DAYS days; ranks "nổi bật" lists. */
+    interestScore: interestScore(interest),
     publishedAt: p.publishedAt,
     updatedAt: p.updatedAt,
   };
