@@ -45,6 +45,12 @@ export class PropertiesController {
     return this.properties.adminList(q);
   }
 
+  @Get('admin/properties/stats')
+  @RequirePermissions(PERMISSIONS.contentRead)
+  async adminStats() {
+    return { data: await this.properties.adminStats() };
+  }
+
   @Get('admin/properties/preview/:slug')
   @RequirePermissions(PERMISSIONS.contentRead)
   async preview(@Param('slug') slug: string) {

@@ -90,8 +90,11 @@ export class PublicPropertyQuery extends PaginationQuery {
   @IsOptional() @IsEnum(Furnishing) furnishing?: Furnishing;
   @IsOptional() @IsEnum(Availability) availability?: Availability;
   @IsOptional() @IsIn(['rent', 'sale']) listing?: 'rent' | 'sale';
-  @IsOptional() @IsIn(['price-asc', 'price-desc', 'area', 'newest', 'default']) sort?: string;
+  /** Admin also sorts by 'created', 'updated' and 'name'. */
+  @IsOptional() @IsIn(['price-asc', 'price-desc', 'area', 'newest', 'default', 'created', 'updated', 'name']) sort?: string;
 }
 export class AdminPropertyQuery extends PublicPropertyQuery {
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
+  /** An editor badge, or 'none' for units without one. */
+  @IsOptional() @IsIn([...HIGHLIGHTS, 'none']) highlight?: (typeof HIGHLIGHTS)[number] | 'none';
 }

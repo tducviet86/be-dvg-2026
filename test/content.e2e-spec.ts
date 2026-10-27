@@ -240,6 +240,19 @@ describe('properties', () => {
     expect(search.body.data.map((p: { slug: string }) => p.slug)).toEqual(['song-han-b', 'song-han-a']);
     expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug)).toEqual(['song-han-a']);
     expect(type.code).toBe('2pn');
+    // Admin lists the unit created last first, even a draft with no publish date.
+    const adminList = (await admin.get('/api/v1/admin/properties').expect(200)).body.data.map((p: { slug: string }) => p.slug);
+    expect(adminList.slice(0, 3)).toEqual(['song-han-c', 'song-han-b', 'song-han-a']);
+    const slugs = async (query: string) => (await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body.data.map((p: { slug: string }) => p.slug);
+    expect(await slugs('project=monarchy&sort=price-asc')).toEqual(['song-han-c', 'song-han-a', 'song-han-b']);
+    expect(await slugs('project=monarchy&sort=name')).toEqual(['song-han-a', 'song-han-b', 'song-han-c']);
+    expect(await slugs('project=monarchy&status=DRAFT')).toEqual(['song-han-c']);
+    expect(await slugs('project=monarchy&highlight=none')).toHaveLength(3);
+    await admin.get('/api/v1/admin/properties?sort=views').expect(400);
+    // Summary cards: archived units are not counted.
+    const stats = (await admin.get('/api/v1/admin/properties/stats').expect(200)).body.data;
+    expect(stats).toMatchObject({ published: 2, draft: 1, availability: { AVAILABLE: 3 }, highlighted: 0, demo: 1 });
+    expect(stats.total).toBe(3);
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
 
@@ -251,6 +264,12 @@ describe('properties', () => {
     // No code typed: "DVG-" + the last 4 characters of the id, also ending the slug.
     expect(first.unitCode).toBe(`DVG-${first.id.replace(/-/g, '').slice(-4).toUpperCase()}`);
     expect(first.slug).toBe(`can-2pn-view-song-han-${first.unitCode.toLowerCase()}`);
+    // The admin list says who created and last changed each unit.
+    const admins = await prisma.user.findMany({ select: { name: true } });
+    expect(admins.map((u) => u.name)).toContain(first.createdBy);
+    expect(first.updatedBy).toBe(first.createdBy);
+    const seeded = (await admin.get('/api/v1/admin/properties?project=ponte').expect(200)).body.data[0];
+    expect(seeded.createdBy).toEqual(expect.any(String));
     // The slug always ends with the unit code; the same code twice gets a number.
     const second = await create({ unitCode: 'A-12.05' });
     expect(second).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: 'A-12.05' });

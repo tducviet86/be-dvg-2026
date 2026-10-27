@@ -20,6 +20,7 @@ const adminRoutes: [string, string][] = [
   ['get', '/api/v1/admin/banners'],
   ['post', '/api/v1/admin/banners'],
   ['get', '/api/v1/admin/properties'],
+  ['get', '/api/v1/admin/properties/stats'],
   ['get', '/api/v1/admin/blog/posts'],
   ['get', '/api/v1/admin/leads'],
   ['get', '/api/v1/admin/leads/export'],

@@ -81,9 +81,13 @@ function toPublic(p: Row, interest?: Interest) {
     updatedAt: p.updatedAt,
   };
 }
-function toAdmin(p: Row, interest?: Interest) {
+/** Who created a unit and who changed it last (from the audit log). */
+export type Editors = { createdBy: string | null; updatedBy: string | null };
+function toAdmin(p: Row, interest?: Interest, editors?: Editors) {
   return {
     ...toPublic(p, interest),
+    createdBy: editors?.createdBy ?? null,
+    updatedBy: editors?.updatedBy ?? null,
     interest: { days: INTEREST_DAYS, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
     status: p.status,
     projectId: p.projectId,
@@ -109,6 +113,15 @@ const orderBy = (sort?: string): Prisma.PropertyOrderByWithRelationInput[] =>
             { createdAt: 'desc' },
             { id: 'asc' },
           ];
+/** Admin list: newest created first by default, drafts included (they have no publish date). */
+const adminOrderBy = (sort?: string): Prisma.PropertyOrderByWithRelationInput[] =>
+  sort === 'updated'
+    ? [{ updatedAt: 'desc' }, { id: 'asc' }]
+    : sort === 'name'
+      ? [{ name: 'asc' }, { id: 'asc' }]
+      : sort === 'price-asc' || sort === 'price-desc' || sort === 'area'
+        ? [...orderBy(sort), { id: 'asc' }]
+        : [{ createdAt: 'desc' }, { id: 'asc' }];
 const date = (value: string | null | undefined) =>
   value === undefined ? undefined : value === null ? null : new Date(`${value.slice(0, 10)}T00:00:00Z`);
 
@@ -171,6 +184,25 @@ export class PropertiesService {
     throw notFound('Không tìm thấy căn hộ.');
   }
 
+  /** Names of who created and last changed each unit (audit log; seeded units have none). */
+  async editors(ids: string[]): Promise<Map<string, Editors>> {
+    const result = new Map<string, Editors>();
+    if (!ids.length) return result;
+    const logs = await this.prisma.auditLog.findMany({
+      where: { entityType: 'property', entityId: { in: ids }, action: { in: ['property.create', 'property.update'] } },
+      select: { entityId: true, action: true, actor: { select: { name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    for (const log of logs) {
+      const entry = result.get(log.entityId!) ?? { createdBy: null, updatedBy: null };
+      const name = log.actor?.name ?? null;
+      if (log.action === 'property.create') entry.createdBy = name;
+      entry.updatedBy = name;
+      result.set(log.entityId!, entry);
+    }
+    return result;
+  }
+
   /** Views and enquiries per unit over the last INTEREST_DAYS days. */
   async interest(ids: string[]): Promise<Map<string, Interest>> {
     const result = new Map<string, Interest>();
@@ -215,19 +247,48 @@ export class PropertiesService {
   }
 
   async adminList(q: AdminPropertyQuery) {
-    const where: Prisma.PropertyWhereInput = { deletedAt: null, status: q.status, ...this.filters(q) };
+    const where: Prisma.PropertyWhereInput = {
+      deletedAt: null,
+      status: q.status,
+      ...this.filters(q),
+      ...(q.highlight === 'none' ? { highlight: null } : q.highlight ? { highlight: q.highlight } : {}),
+    };
     const [rows, total] = await Promise.all([
-      this.prisma.property.findMany({ where, include, orderBy: orderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      this.prisma.property.findMany({ where, include, orderBy: adminOrderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       this.prisma.property.count({ where }),
     ]);
-    const interest = await this.interest(rows.map((r) => r.id));
-    return { data: rows.map((r) => toAdmin(r, interest.get(r.id))), meta: pageMeta(q.page, q.pageSize, total) };
+    const ids = rows.map((r) => r.id);
+    const [interest, editors] = await Promise.all([this.interest(ids), this.editors(ids)]);
+    return { data: rows.map((r) => toAdmin(r, interest.get(r.id), editors.get(r.id))), meta: pageMeta(q.page, q.pageSize, total) };
+  }
+
+  /** Counts for the admin list's summary cards (archived units left out). */
+  async adminStats() {
+    const where = { deletedAt: null, status: { not: 'ARCHIVED' as const } };
+    const [byStatus, byAvailability, highlighted, demo] = await Promise.all([
+      this.prisma.property.groupBy({ by: ['status'], where, _count: { _all: true } }),
+      this.prisma.property.groupBy({ by: ['availability'], where, _count: { _all: true } }),
+      this.prisma.property.count({ where: { ...where, highlight: { not: null } } }),
+      this.prisma.property.count({ where: { ...where, isDemo: true } }),
+    ]);
+    const total = byStatus.reduce((n, r) => n + r._count._all, 0);
+    const status = (value: string) => byStatus.find((r) => r.status === value)?._count._all ?? 0;
+    return {
+      total,
+      published: status('PUBLISHED'),
+      draft: status('DRAFT'),
+      /** Units per availability (AVAILABLE, RENTED, …). */
+      availability: Object.fromEntries(byAvailability.map((r) => [r.availability, r._count._all])),
+      highlighted,
+      demo,
+    };
   }
 
   async adminGet(id: string) {
     const row = await this.prisma.property.findFirst({ where: { id, deletedAt: null }, include });
     if (!row) throw notFound('Không tìm thấy căn hộ.');
-    return toAdmin(row, (await this.interest([row.id])).get(row.id));
+    const [interest, editors] = await Promise.all([this.interest([row.id]), this.editors([row.id])]);
+    return toAdmin(row, interest.get(row.id), editors.get(row.id));
   }
 
   async previewBySlug(slug: string) {
