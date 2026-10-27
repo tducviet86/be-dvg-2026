@@ -30,6 +30,9 @@ const form = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** Slugs end with the unit code: 'song-han-a' is unit 'A' of 'song-han'. */
+const codeOf = (slug: string) => slug.split('-').pop()!.toUpperCase();
+
 describe('lead intake', () => {
   it('stores real submissions and lets staff process them', async () => {
     await http().post('/api/v1/contact').send(form({ intent: 'Tìm thuê bất động sản' })).expect(202);
@@ -227,7 +230,7 @@ describe('properties', () => {
   it('filters published units and keeps demo units out of the sitemap', async () => {
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const type = await prisma.propertyType.findUniqueOrThrow({ where: { code: '2pn' } });
-    const unit = (slug: string, rent: string, extra = {}) => admin.post('/api/v1/admin/properties', { slug, name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Sơn Trà, Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: rent, status: 'PUBLISHED', ...extra }).expect(201);
+    const unit = (slug: string, rent: string, extra = {}) => admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Sơn Trà, Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: rent, status: 'PUBLISHED', ...extra }).expect(201);
     await unit('song-han-a', '15000000');
     await unit('song-han-b', '25000000', { isDemo: true });
     await unit('song-han-c', '9000000', { status: 'DRAFT' });
@@ -240,20 +243,20 @@ describe('properties', () => {
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
 
-  it('makes the slug and unit code when the editor leaves them empty', async () => {
+  it('makes the slug from the name and unit code, and the code when it is empty', async () => {
     const project = await prisma.project.create({ data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
     const base = { name: 'Căn 2PN view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.' };
     const create = (extra = {}) => admin.post('/api/v1/admin/properties', { ...base, ...extra }).expect(201).then((r) => r.body.data);
     const first = await create();
-    expect(first.slug).toBe('can-2pn-view-song-han');
-    // No code typed: "DVG-" + the last 4 characters of the id.
+    // No code typed: "DVG-" + the last 4 characters of the id, also ending the slug.
     expect(first.unitCode).toBe(`DVG-${first.id.replace(/-/g, '').slice(-4).toUpperCase()}`);
-    // Same name: the unit code is added to the slug.
+    expect(first.slug).toBe(`can-2pn-view-song-han-${first.unitCode.toLowerCase()}`);
+    // The slug always ends with the unit code; the same code twice gets a number.
     const second = await create({ unitCode: 'A-12.05' });
     expect(second).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: 'A-12.05' });
     const third = await create({ unitCode: 'A-12.05' });
     expect(third.slug).toBe('can-2pn-view-song-han-a-12-05-2');
-    // A typed slug that is taken also gets the code instead of an error.
+    // A typed slug gets the code too.
     const typed = await create({ slug: 'can-2pn-view-song-han', unitCode: 'B-03' });
     expect(typed.slug).toBe('can-2pn-view-song-han-b-03');
     // Saving with the code cleared gives the unit a code again; an unchanged slug stays.
@@ -261,12 +264,15 @@ describe('properties', () => {
     expect(saved.body.data).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: `DVG-${second.id.replace(/-/g, '').slice(-4).toUpperCase()}` });
     const renamed = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-2pn-view-song-han' }).expect(200);
     expect(renamed.body.data.slug).toBe('can-2pn-view-song-han-b-03');
+    // A slug already ending with the code (as the editor sends it) keeps one code.
+    const moved = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-moi-b-03' }).expect(200);
+    expect(moved.body.data.slug).toBe('can-moi-b-03');
   });
 
   it('shows the editor badge and marks units many visitors look at as trending', async () => {
     const project = await prisma.project.create({ data: { slug: 'panoma', name: 'Sun Panoma', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const unit = (slug: string, extra = {}) =>
-      admin.post('/api/v1/admin/properties', { slug, name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED', ...extra }).expect(201);
+      admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED', ...extra }).expect(201);
     const { body } = await unit('pn-hot', { highlight: 'exclusive' });
     await unit('pn-demo', { isDemo: true });
     await admin.post('/api/v1/admin/properties', { slug: 'pn-bad', name: 'Căn sai', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', highlight: 'sieu-hot' }).expect(400);

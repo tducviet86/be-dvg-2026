@@ -278,7 +278,7 @@ export class PropertiesService {
       assertFresh(existing.updatedAt, dto.expectedUpdatedAt);
       this.assertPublishRight(dto.status, existing.status, user);
       const refs = await this.references(tx, dto);
-      // An empty unit code gets one; a slug already in use gets the unit code added.
+      // An empty unit code gets one; slugs end with the unit code.
       const unitCode = (dto.unitCode === undefined ? existing.unitCode : dto.unitCode) || (await this.autoUnitCode(tx, id));
       const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, unitCode, id) : undefined;
       await tx.property.update({
@@ -365,20 +365,22 @@ export class PropertiesService {
   }
 
   /**
-   * A free slug from `base` (the typed slug or the unit name). When another
-   * unit has it, the unit code is added ("can-2pn-view-song-a-12-05"), then
-   * a number.
+   * A free slug from `base` (the typed slug or the unit name) ending with the
+   * unit code ("can-2pn-view-song-a-12-05"); a number is added when another
+   * unit already has it.
    */
   private async freeSlug(tx: Prisma.TransactionClient, base: string, unitCode: string, selfId?: string) {
     const taken = async (slug: string) => {
       const row = await tx.property.findUnique({ where: { slug }, select: { id: true } });
       return !!row && row.id !== selfId;
     };
-    const root = slugify(base).slice(0, 120).replace(/-+$/, '') || 'can-ho';
-    if (!(await taken(root))) return root;
-    const withCode = `${root}-${slugify(unitCode)}`.slice(0, 150).replace(/-+$/, '');
-    if (!(await taken(withCode))) return withCode;
-    for (let n = 2; ; n++) if (!(await taken(`${withCode}-${n}`))) return `${withCode}-${n}`;
+    const code = slugify(unitCode);
+    const typed = slugify(base).replace(/-+$/, '');
+    // The editor already adds the code: do not add it twice.
+    const root = (typed.endsWith(`-${code}`) || typed === code ? typed.slice(0, typed.length - code.length).replace(/-+$/, '') : typed).slice(0, 120).replace(/-+$/, '');
+    const slug = [root, code].filter(Boolean).join('-').slice(0, 150).replace(/-+$/, '') || 'can-ho';
+    if (!(await taken(slug))) return slug;
+    for (let n = 2; ; n++) if (!(await taken(`${slug}-${n}`))) return `${slug}-${n}`;
   }
 
   private scalars(dto: UpdatePropertyDto) {
