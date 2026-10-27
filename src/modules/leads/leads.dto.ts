@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { Equals, IsBoolean, IsEmail, IsEnum, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { ADMIN_SORTS, type AdminSort } from '../../common/utils/admin-list.js';
 import { Clean } from '../../common/dto/fields.js';
 import { PaginationQuery } from '../../common/dto/pagination.dto.js';
 import { LeadKind, LeadPriority, LeadStatus } from '../../generated/prisma/enums.js';
@@ -34,6 +35,8 @@ export class LeadQuery extends PaginationQuery {
   @IsOptional() @IsString() @MaxLength(100) q?: string;
   @IsOptional() @IsISO8601() from?: string;
   @IsOptional() @IsISO8601() to?: string;
+  /** Admin list order: default, created, updated or name. */
+  @IsOptional() @IsIn(ADMIN_SORTS) sort?: AdminSort;
 }
 export class UpdateLeadDto {
   @IsOptional() @IsEnum(LeadStatus) status?: LeadStatus;

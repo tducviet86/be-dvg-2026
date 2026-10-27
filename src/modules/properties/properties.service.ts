@@ -6,6 +6,7 @@ import { assertFresh, image, publishedWhere, publishFields } from '../../common/
 import { decimal, isoDate, money, toBigInt } from '../../common/utils/serialize.js';
 import { normalize, slugify } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { editorsOf, type Editors } from '../../common/utils/admin-list.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -81,8 +82,6 @@ function toPublic(p: Row, interest?: Interest) {
     updatedAt: p.updatedAt,
   };
 }
-/** Who created a unit and who changed it last (from the audit log). */
-export type Editors = { createdBy: string | null; updatedBy: string | null };
 function toAdmin(p: Row, interest?: Interest, editors?: Editors) {
   return {
     ...toPublic(p, interest),
@@ -185,22 +184,8 @@ export class PropertiesService {
   }
 
   /** Names of who created and last changed each unit (audit log; seeded units have none). */
-  async editors(ids: string[]): Promise<Map<string, Editors>> {
-    const result = new Map<string, Editors>();
-    if (!ids.length) return result;
-    const logs = await this.prisma.auditLog.findMany({
-      where: { entityType: 'property', entityId: { in: ids }, action: { in: ['property.create', 'property.update'] } },
-      select: { entityId: true, action: true, actor: { select: { name: true } } },
-      orderBy: { createdAt: 'asc' },
-    });
-    for (const log of logs) {
-      const entry = result.get(log.entityId!) ?? { createdBy: null, updatedBy: null };
-      const name = log.actor?.name ?? null;
-      if (log.action === 'property.create') entry.createdBy = name;
-      entry.updatedBy = name;
-      result.set(log.entityId!, entry);
-    }
-    return result;
+  editors(ids: string[]) {
+    return editorsOf(this.prisma, 'property', 'property', ids);
   }
 
   /** Views and enquiries per unit over the last INTEREST_DAYS days. */

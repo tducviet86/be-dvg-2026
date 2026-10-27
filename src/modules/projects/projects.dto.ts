@@ -6,7 +6,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsInt,
+  IsIn, IsInt,
   IsISO8601,
   IsLatitude,
   IsLongitude,
@@ -21,6 +21,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { ADMIN_SORTS, type AdminSort } from '../../common/utils/admin-list.js';
 import { Clean, CleanList } from '../../common/dto/fields.js';
 import { PaginationQuery } from '../../common/dto/pagination.dto.js';
 import { SLUG_PATTERN } from '../../common/utils/text.js';
@@ -93,4 +94,6 @@ export class AdminProjectQuery extends PaginationQuery {
   @IsOptional() @IsString() q?: string;
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
   @IsOptional() @IsString() category?: string;
+  /** Admin list order: default, created, updated or name. */
+  @IsOptional() @IsIn(ADMIN_SORTS) sort?: AdminSort;
 }

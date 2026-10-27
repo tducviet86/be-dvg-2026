@@ -6,7 +6,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsInt,
+  IsIn, IsInt,
   IsISO8601,
   IsOptional,
   IsString,
@@ -18,6 +18,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { ADMIN_SORTS, type AdminSort } from '../../common/utils/admin-list.js';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators/auth.decorators.js';
 import { Clean } from '../../common/dto/fields.js';
 import { pageMeta, PaginationQuery } from '../../common/dto/pagination.dto.js';
@@ -25,6 +26,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../common/errors.j
 import { assertFresh, image, publishedWhere, publishFields } from '../../common/utils/content.js';
 import { normalize } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { editorsOf, statusCounts } from '../../common/utils/admin-list.js';
 import { PageKind, PublishStatus } from '../../generated/prisma/enums.js';
 import type { MediaAsset, Prisma, StaticPage } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -62,6 +64,8 @@ class PageQuery extends PaginationQuery {
   @IsOptional() @IsEnum(PageKind) kind?: PageKind;
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
   @IsOptional() @IsString() @MaxLength(100) q?: string;
+  /** Admin list order: default, created, updated or name. */
+  @IsOptional() @IsIn(ADMIN_SORTS) sort?: AdminSort;
 }
 
 /** Shown on the "Đường dẫn" field in Admin (same shape as validation errors). */
@@ -141,17 +145,29 @@ export class PagesController {
       status: q.status,
       ...(q.q ? { OR: [{ title: { contains: q.q, mode: 'insensitive' } }, { path: { contains: words.join('-') || q.q } }] } : {}),
     };
-    const [rows, total] = await Promise.all([
+    const [rows, total, byStatus] = await Promise.all([
       this.prisma.staticPage.findMany({
         where,
         include,
-        orderBy: [{ kind: 'asc' }, { sortOrder: 'asc' }, { path: 'asc' }],
+        orderBy:
+          q.sort === 'created'
+            ? [{ createdAt: 'desc' }, { id: 'asc' }]
+            : q.sort === 'updated'
+              ? [{ updatedAt: 'desc' }, { id: 'asc' }]
+              : q.sort === 'name'
+                ? [{ title: 'asc' }, { id: 'asc' }]
+                : [{ kind: 'asc' }, { sortOrder: 'asc' }, { path: 'asc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
       }),
       this.prisma.staticPage.count({ where }),
+      this.prisma.staticPage.groupBy({ by: ['status'], where: { kind: q.kind }, _count: { _all: true }, orderBy: { status: 'asc' } }),
     ]);
-    return { data: rows.map(toAdmin), meta: pageMeta(q.page, q.pageSize, total) };
+    const editors = await editorsOf(this.prisma, 'page', 'page', rows.map((r) => r.id));
+    return {
+      data: rows.map((r) => ({ ...toAdmin(r), ...(editors.get(r.id) ?? { createdBy: null, updatedBy: null }) })),
+      meta: { ...pageMeta(q.page, q.pageSize, total), byStatus: statusCounts(byStatus) },
+    };
   }
 
   @Get('admin/pages/:id')

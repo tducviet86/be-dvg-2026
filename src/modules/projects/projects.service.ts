@@ -3,6 +3,7 @@ import { badRequest, conflict, forbidden, gone, MovedError, notFound } from '../
 import { assertFresh, image, publishedWhere, publishFields } from '../../common/utils/content.js';
 import { normalize } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { editorsOf, statusCounts } from '../../common/utils/admin-list.js';
 import { slugTaken } from '../../common/validation.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -81,19 +82,28 @@ export class ProjectsService {
         ? { OR: [{ name: { contains: q.q, mode: 'insensitive' } }, { slug: { contains: normalize(q.q) } }, { location: { contains: q.q, mode: 'insensitive' } }] }
         : {}),
     };
-    const [rows, total] = await Promise.all([
+    const [rows, total, byStatus] = await Promise.all([
       this.prisma.project.findMany({
         where,
         include: { ...projectInclude, _count: { select: { properties: { where: { deletedAt: null } } } }, banner: { select: { id: true, isActive: true } } },
-        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        orderBy:
+          q.sort === 'created'
+            ? [{ createdAt: 'desc' }, { id: 'asc' }]
+            : q.sort === 'updated'
+              ? [{ updatedAt: 'desc' }, { id: 'asc' }]
+              : q.sort === 'name'
+                ? [{ name: 'asc' }, { id: 'asc' }]
+                : [{ sortOrder: 'asc' }, { name: 'asc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
       }),
       this.prisma.project.count({ where }),
+      this.prisma.project.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true }, orderBy: { status: 'asc' } }),
     ]);
+    const editors = await editorsOf(this.prisma, 'project', 'project', rows.map((r) => r.id));
     return {
-      data: rows.map((row) => ({ ...toAdminProject(row), banner: row.banner })),
-      meta: pageMeta(q.page, q.pageSize, total),
+      data: rows.map((row) => ({ ...toAdminProject(row), banner: row.banner, ...(editors.get(row.id) ?? { createdBy: null, updatedBy: null }) })),
+      meta: { ...pageMeta(q.page, q.pageSize, total), byStatus: statusCounts(byStatus) },
     };
   }
 

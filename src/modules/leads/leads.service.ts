@@ -199,7 +199,13 @@ ${rows.map(([k, v]) => `<tr><td style="background:#f4f6f3;width:130px;color:#566
   async list(q: LeadQuery, user: AuthUser) {
     const where = this.where(q, user);
     const [rows, total, counts] = await Promise.all([
-      this.prisma.lead.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      this.prisma.lead.findMany({
+        where,
+        include,
+        orderBy: q.sort === 'updated' ? [{ updatedAt: 'desc' }, { id: 'asc' }] : q.sort === 'name' ? [{ name: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (q.page - 1) * q.pageSize,
+        take: q.pageSize,
+      }),
       this.prisma.lead.count({ where }),
       this.prisma.lead.groupBy({ by: ['status'], where: { deletedAt: null, AND: [this.scope(user)] }, _count: { _all: true }, orderBy: { status: 'asc' } }),
     ]);

@@ -49,6 +49,22 @@ describe('projects & homepage banner', () => {
     expect((await http().get('/api/v1/projects?category=rent').expect(200)).body.meta.total).toBe(0);
   });
 
+  it('the admin list counts statuses, sorts and says who created each project', async () => {
+    await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED' })).expect(201);
+    await admin.post('/api/v1/admin/projects', base({ slug: 'an-binh', name: 'An Bình' })).expect(201);
+    const list = (query = '') => admin.get(`/api/v1/admin/projects?${query}`).expect(200).then((r) => r.body);
+    const body = await list('sort=name');
+    expect(body.data.map((p: { slug: string }) => p.slug)).toEqual(['an-binh', 'capital-square']);
+    expect(body.meta.byStatus).toEqual({ DRAFT: 1, PUBLISHED: 1 });
+    expect(body.data[0].createdBy).toEqual(expect.any(String));
+    expect((await list('sort=created')).data[0].slug).toBe('an-binh');
+    // Counts ignore the status filter, so every card keeps its number.
+    expect((await list('status=DRAFT')).meta.byStatus).toEqual({ DRAFT: 1, PUBLISHED: 1 });
+    await admin.get('/api/v1/admin/projects?sort=random').expect(400);
+    for (const path of ['blog/posts', 'pages', 'jobs', 'leads'])
+      expect((await admin.get(`/api/v1/admin/${path}?sort=name`).expect(200)).body.meta.byStatus).toEqual(expect.any(Object));
+  });
+
   it('enabling the banner in the project form creates exactly one linked banner', async () => {
     const created = await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED', banner: { enabled: true, useProjectImage: true, position: 1 } })).expect(201);
     const id = created.body.data.id;

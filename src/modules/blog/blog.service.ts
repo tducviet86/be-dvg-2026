@@ -4,6 +4,7 @@ import { badRequest, conflict, forbidden, gone, MovedError, notFound } from '../
 import { assertFresh, image, publishedWhere } from '../../common/utils/content.js';
 import { slugify } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { editorsOf, statusCounts } from '../../common/utils/admin-list.js';
 import { slugTaken } from '../../common/validation.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -90,11 +91,18 @@ export class BlogService {
       ...(q.category ? { category: { slug: q.category } } : {}),
       ...(q.q ? { title: { contains: q.q, mode: 'insensitive' } } : {}),
     };
-    const [rows, total] = await Promise.all([
-      this.prisma.blogPost.findMany({ where, include, orderBy: [{ updatedAt: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+    const orderBy: Prisma.BlogPostOrderByWithRelationInput[] =
+      q.sort === 'created' ? [{ createdAt: 'desc' }, { id: 'asc' }] : q.sort === 'name' ? [{ title: 'asc' }, { id: 'asc' }] : [{ updatedAt: 'desc' }, { id: 'asc' }];
+    const [rows, total, byStatus] = await Promise.all([
+      this.prisma.blogPost.findMany({ where, include, orderBy, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       this.prisma.blogPost.count({ where }),
+      this.prisma.blogPost.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true }, orderBy: { status: 'asc' } }),
     ]);
-    return { data: rows.map(admin), meta: pageMeta(q.page, q.pageSize, total) };
+    const editors = await editorsOf(this.prisma, 'post', 'post', rows.map((r) => r.id));
+    return {
+      data: rows.map((r) => ({ ...admin(r), ...(editors.get(r.id) ?? { createdBy: null, updatedBy: null }) })),
+      meta: { ...pageMeta(q.page, q.pageSize, total), byStatus: statusCounts(byStatus) },
+    };
   }
 
   async adminGet(id: string) {

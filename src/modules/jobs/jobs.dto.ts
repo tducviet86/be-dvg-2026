@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { Equals, IsBoolean, IsEmail, IsEnum, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { ADMIN_SORTS, type AdminSort } from '../../common/utils/admin-list.js';
 import { Clean } from '../../common/dto/fields.js';
 import { PaginationQuery } from '../../common/dto/pagination.dto.js';
 import { SLUG_PATTERN } from '../../common/utils/text.js';
@@ -40,6 +41,8 @@ export class PublicJobQuery extends PaginationQuery {
 export class AdminJobQuery extends PaginationQuery {
   @IsOptional() @IsString() @MaxLength(100) q?: string;
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
+  /** Admin list order: default, created, updated or name. */
+  @IsOptional() @IsIn(ADMIN_SORTS) sort?: AdminSort;
 }
 
 /** Multipart form fields arrive as strings. */

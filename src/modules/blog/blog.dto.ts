@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { ADMIN_SORTS, type AdminSort } from '../../common/utils/admin-list.js';
 import { Clean, CleanList } from '../../common/dto/fields.js';
 import { PaginationQuery } from '../../common/dto/pagination.dto.js';
 import { SLUG_PATTERN } from '../../common/utils/text.js';
@@ -35,6 +36,8 @@ export class PublicPostQuery extends PaginationQuery {
 export class AdminPostQuery extends PublicPostQuery {
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
   @IsOptional() @IsString() @MaxLength(100) q?: string;
+  /** Admin list order: default, created, updated or name. */
+  @IsOptional() @IsIn(ADMIN_SORTS) sort?: AdminSort;
 }
 export class CategoryDto {
   @IsString() @Matches(SLUG_PATTERN) @MaxLength(80) slug: string;

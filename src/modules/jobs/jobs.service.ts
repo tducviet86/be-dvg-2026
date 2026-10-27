@@ -6,6 +6,7 @@ import { assertFresh, publishedWhere, publishFields } from '../../common/utils/c
 import { isoDate, money, toBigInt } from '../../common/utils/serialize.js';
 import { AppConfig } from '../../config/config.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { editorsOf, statusCounts } from '../../common/utils/admin-list.js';
 import type { JobApplication, JobPosting, Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -193,17 +194,22 @@ export class JobsService {
       status: q.status,
       ...(q.q ? { OR: [{ title: { contains: q.q, mode: 'insensitive' } }, { department: { contains: q.q, mode: 'insensitive' } }] } : {}),
     };
-    const [rows, total] = await Promise.all([
+    const [rows, total, byStatus] = await Promise.all([
       this.prisma.jobPosting.findMany({
         where,
         include: { _count: { select: { applications: true } } },
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        orderBy: q.sort === 'updated' ? [{ updatedAt: 'desc' }, { id: 'asc' }] : q.sort === 'name' ? [{ title: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
       }),
       this.prisma.jobPosting.count({ where }),
+      this.prisma.jobPosting.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true }, orderBy: { status: 'asc' } }),
     ]);
-    return { data: rows.map(toAdmin), meta: pageMeta(q.page, q.pageSize, total) };
+    const editors = await editorsOf(this.prisma, 'job', 'job', rows.map((r) => r.id));
+    return {
+      data: rows.map((r) => ({ ...toAdmin(r), ...(editors.get(r.id) ?? { createdBy: null, updatedBy: null }) })),
+      meta: { ...pageMeta(q.page, q.pageSize, total), byStatus: statusCounts(byStatus) },
+    };
   }
 
   async adminGet(id: string) {
