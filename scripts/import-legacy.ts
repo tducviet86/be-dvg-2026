@@ -11,6 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { prisma } from './db.js';
+import { COMPANY_PAGES } from '../prisma/data/company-content.js';
 
 const publish = process.argv.includes('--publish');
 const content = JSON.parse(readFileSync(new URL('../prisma/data/legacy-content.json', import.meta.url), 'utf8'));
@@ -70,7 +71,10 @@ for (const p of content.projects) {
   created++;
 }
 
-for (const page of content.pages) {
+// Company pages: the real texts (prisma/data/company-content.ts), not the demo ones.
+const realPages = new Map(COMPANY_PAGES.map((p) => [p.path, p]));
+for (const legacy of content.pages) {
+  const page = { ...legacy, ...realPages.get(legacy.path) };
   if (await prisma.staticPage.findUnique({ where: { path: page.path } })) {
     skipped++;
     continue;

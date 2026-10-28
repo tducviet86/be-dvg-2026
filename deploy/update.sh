@@ -20,10 +20,14 @@ if [ "$only" = web ]; then
 else
   echo "== Sao lưu database"
   ./backup.sh
-  echo "== Build"
-  dc build api web migrate
   echo "== Cập nhật cấu trúc database"
+  dc build migrate
   dc run --rm migrate
+  # Before the website build, so its pages are made with the real texts.
+  echo "== Thay nội dung demo còn sót (chỉ trang còn chữ demo)"
+  dc run --rm migrate npm run content:real
+  echo "== Build"
+  dc build api web
   dc up -d
 fi
 

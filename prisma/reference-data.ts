@@ -3,6 +3,7 @@
  * Contains no credentials and no business content.
  */
 import type { PrismaClient } from '../src/generated/prisma/client.js';
+import { SERVICE_SECTIONS } from './data/company-content.js';
 import { ROLE_DEFINITIONS, PERMISSIONS } from '../src/modules/auth/permissions.js';
 
 const permissionNames: Record<string, string> = {
@@ -84,14 +85,7 @@ function serviceRow([slug, title, intro, summary, inMenu, linkHref]: (typeof SER
     eyebrow: 'LĨNH VỰC HOẠT ĐỘNG',
     intro,
     summary,
-    sections: [
-      { heading: 'Phương án phù hợp với nhu cầu thực tế.', body: `${intro} Mỗi phương án bắt đầu bằng việc hiểu mục tiêu của bạn, các đặc điểm của tài sản và những nguồn lực sẵn có.` },
-      {
-        heading: 'Phạm vi phối hợp',
-        body: 'Tiếp nhận thông tin và xác định các ưu tiên.\nKhảo sát hiện trạng, làm rõ phạm vi và đầu mối công việc.\nĐề xuất kế hoạch, thời gian và cơ chế cập nhật.\nTheo dõi phản hồi và cùng điều chỉnh khi cần thiết.',
-      },
-      { heading: 'Minh bạch trước khi bắt đầu', body: 'Các chi phí và trách nhiệm cần được trao đổi theo từng trường hợp. Nội dung này là mô hình dịch vụ minh họa, không phải báo giá hoặc cam kết hiệu quả tài chính.' },
-    ],
+    sections: SERVICE_SECTIONS[slug] ?? [],
     sortOrder: (i + 1) * 10,
     inMenu,
     linkHref: linkHref ?? null,
