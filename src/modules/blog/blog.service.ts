@@ -219,6 +219,9 @@ export class BlogService {
   private publishedAt(status: string, requested: string | null | undefined, current: Date | null) {
     if (status !== 'PUBLISHED') return requested ? new Date(requested) : current;
     if (requested) return new Date(requested);
+    // Cleared while still scheduled: "Để trống: xuất bản ngay". A post already
+    // online keeps its original date.
+    if (requested === null && current && current > new Date()) return new Date();
     return current ?? new Date();
   }
   private scalars(dto: UpdatePostDto) {

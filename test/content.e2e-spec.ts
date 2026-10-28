@@ -223,6 +223,14 @@ describe('blog', () => {
     await admin.patch(`/api/v1/admin/blog/posts/${created.body.data.id}`, { publishedAt: new Date(Date.now() - 1000).toISOString() }).expect(200);
     await http().get('/api/v1/blog/bai-viet').expect(200);
     expect((await http().get('/api/v1/blog/categories').expect(200)).body.data.find((c: { slug: string }) => c.slug === 'tin-doanh-nghiep').postCount).toBe(1);
+    // Clearing the date of a scheduled post publishes it now; a live post keeps its date.
+    const later = await admin.post('/api/v1/admin/blog/posts', { slug: 'bai-hen', title: 'Bài hẹn', excerpt: 'Tóm tắt bài hẹn đủ dài.', content: 'Nội dung bài hẹn đủ dài.', category: 'tin-doanh-nghiep', status: 'PUBLISHED', publishedAt: future }).expect(201);
+    await http().get('/api/v1/blog/bai-hen').expect(404);
+    await admin.patch(`/api/v1/admin/blog/posts/${later.body.data.id}`, { publishedAt: null }).expect(200);
+    await http().get('/api/v1/blog/bai-hen').expect(200);
+    const live = (await http().get('/api/v1/blog/bai-viet').expect(200)).body.data.publishedAt;
+    await admin.patch(`/api/v1/admin/blog/posts/${created.body.data.id}`, { publishedAt: null }).expect(200);
+    expect((await http().get('/api/v1/blog/bai-viet').expect(200)).body.data.publishedAt).toBe(live);
   });
 });
 
