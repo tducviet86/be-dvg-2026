@@ -29,6 +29,12 @@ export const SETTING_KEYS: Record<string, { public: boolean; max: number }> = {
   'seo.defaultTitle': { public: true, max: 120 },
   'seo.defaultDescription': { public: true, max: 320 },
   'leads.notificationEmail': { public: false, max: 120 },
+  // Measurement IDs (not secrets): GA4 "G-…", Google Ads "AW-…" with the
+  // lead conversion "AW-…/label", Meta Pixel digits.
+  'tracking.ga4': { public: true, max: 40 },
+  'tracking.googleAds': { public: true, max: 40 },
+  'tracking.googleAdsLead': { public: true, max: 80 },
+  'tracking.metaPixel': { public: true, max: 40 },
 };
 
 class SettingsDto {

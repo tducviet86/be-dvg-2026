@@ -57,6 +57,21 @@ if (!dry && samples.length)
 if (!dry && changed.length)
   await prisma.auditLog.create({ data: { action: 'content.replace_demo', entityType: 'page', changes: { changed } } });
 
+// Tell the website to drop its cached pages, as saving in Admin does.
+if (!dry && changed.length) {
+  const url = process.env.FRONTEND_REVALIDATE_URL || 'http://web:3000/api/revalidate';
+  const secret = process.env.REVALIDATE_SECRET;
+  if (secret)
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-revalidate-secret': secret },
+      body: JSON.stringify({ tags: ['pages', 'blog'] }),
+      signal: AbortSignal.timeout(5000),
+    })
+      .then((res) => console.log(res.ok ? 'Đã báo website làm mới trang.' : `Website từ chối làm mới (${res.status}).`))
+      .catch(() => console.log('Chưa báo được website làm mới; trang tự cập nhật sau ít phút hoặc khi lưu trong Admin.'));
+}
+
 console.log(`${dry ? '[Thử] ' : ''}Đã thay ${changed.length} mục nội dung demo.`);
 for (const line of changed) console.log(`  • ${line}`);
 if (kept.length) console.log(`Giữ nguyên (không còn chữ demo): ${kept.join(', ')}`);
