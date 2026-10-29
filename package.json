@@ -25,6 +25,7 @@
     "import:legacy": "tsx scripts/import-legacy.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "content:real": "tsx scripts/replace-demo-content.ts",
+    "units:codes": "tsx scripts/unit-slug-codes.ts",
     "admin:create": "tsx scripts/create-admin.ts",
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",

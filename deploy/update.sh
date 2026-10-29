@@ -26,6 +26,8 @@ else
   # Before the website build, so its pages are made with the real texts.
   echo "== Thay nội dung demo còn sót (chỉ trang còn chữ demo)"
   dc run --rm migrate npm run content:real
+  echo "== Thêm mã căn vào đường dẫn căn cũ (link cũ tự chuyển sang link mới)"
+  dc run --rm migrate npm run units:codes
   echo "== Build"
   dc build api web
   dc up -d

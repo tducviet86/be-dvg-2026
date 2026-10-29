@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import sharp from 'sharp';
@@ -294,6 +295,17 @@ describe('properties', () => {
     // A slug already ending with the code (as the editor sends it) keeps one code.
     const moved = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-moi-b-03' }).expect(200);
     expect(moved.body.data.slug).toBe('can-moi-b-03');
+    // Units saved before that get the code on deploy; the old link redirects.
+    await prisma.property.update({ where: { id: second.id }, data: { slug: 'can-cu-2pn', status: 'PUBLISHED', publishedAt: new Date() } });
+    await prisma.project.update({ where: { id: project.id }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
+    await prisma.property.update({ where: { id: third.id }, data: { slug: 'can-cu-khong-ma', unitCode: null } });
+    execFileSync('npx', ['tsx', 'scripts/unit-slug-codes.ts'], { env: process.env, stdio: 'pipe' });
+    const old = await http().get('/api/v1/properties/can-cu-2pn').redirects(0).expect(301);
+    expect(old.headers.location).toContain(`/properties/can-cu-2pn-${saved.body.data.unitCode.toLowerCase()}`);
+    const coded = (await prisma.property.findUniqueOrThrow({ where: { id: third.id } }));
+    expect(coded.slug).toBe(`can-cu-khong-ma-${coded.unitCode!.toLowerCase()}`);
+    // Run again: nothing left to change.
+    expect(execFileSync('npx', ['tsx', 'scripts/unit-slug-codes.ts'], { env: process.env }).toString()).toContain('của 0 căn');
   });
 
   it('shows the editor badge and marks units many visitors look at as trending', async () => {

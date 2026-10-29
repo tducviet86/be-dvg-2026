@@ -14,7 +14,18 @@ export const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/**
+ * A unit slug: `base` (the typed slug or the unit name) ending with the unit
+ * code ("can-2pn-view-song-a-12-05"), the code never added twice.
+ */
+export function unitSlug(base: string, unitCode: string) {
+  const code = slugify(unitCode);
+  const typed = slugify(base).replace(/-+$/, '');
+  const root = (typed.endsWith(`-${code}`) || typed === code ? typed.slice(0, typed.length - code.length).replace(/-+$/, '') : typed).slice(0, 120).replace(/-+$/, '');
+  return [root, code].filter(Boolean).join('-').slice(0, 150).replace(/-+$/, '') || 'can-ho';
+}
+
+export const SLUG_PATTERN =/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * The CMS stores plain text (the frontend renders paragraphs, never HTML),

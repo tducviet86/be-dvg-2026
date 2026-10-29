@@ -4,7 +4,7 @@ import { pageMeta } from '../../common/dto/pagination.dto.js';
 import { badRequest, forbidden, gone, MovedError, notFound } from '../../common/errors.js';
 import { assertFresh, image, publishedWhere, publishFields } from '../../common/utils/content.js';
 import { decimal, isoDate, money, toBigInt } from '../../common/utils/serialize.js';
-import { normalize, slugify } from '../../common/utils/text.js';
+import { normalize, unitSlug } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { editorsOf, type Editors } from '../../common/utils/admin-list.js';
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -420,11 +420,7 @@ export class PropertiesService {
       const row = await tx.property.findUnique({ where: { slug }, select: { id: true } });
       return !!row && row.id !== selfId;
     };
-    const code = slugify(unitCode);
-    const typed = slugify(base).replace(/-+$/, '');
-    // The editor already adds the code: do not add it twice.
-    const root = (typed.endsWith(`-${code}`) || typed === code ? typed.slice(0, typed.length - code.length).replace(/-+$/, '') : typed).slice(0, 120).replace(/-+$/, '');
-    const slug = [root, code].filter(Boolean).join('-').slice(0, 150).replace(/-+$/, '') || 'can-ho';
+    const slug = unitSlug(base, unitCode);
     if (!(await taken(slug))) return slug;
     for (let n = 2; ; n++) if (!(await taken(`${slug}-${n}`))) return `${slug}-${n}`;
   }
