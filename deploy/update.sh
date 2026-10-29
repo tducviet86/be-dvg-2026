@@ -64,6 +64,8 @@ main() {
   dc up -d
 
   docker image prune -f >/dev/null
+  # Build cache grows with every deploy: keep only the recent ~4 GB.
+  docker builder prune -f --keep-storage 4GB >/dev/null || true
   dc ps
   echo "== Xong: $(date '+%H:%M %d/%m/%Y')"
 }
