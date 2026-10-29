@@ -8,7 +8,7 @@ import { forbidden } from '../../common/errors.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
-import { AiService, SEO_LIMITS, type SeoKind } from './ai.service.js';
+import { AiService, SEO_LIMITS, type Listing, type SeoKind } from './ai.service.js';
 
 class SeoSuggestDto {
   @IsIn(['post', 'project', 'property', 'page', 'job']) kind: SeoKind;
@@ -16,12 +16,14 @@ class SeoSuggestDto {
   @IsOptional() @Clean() @IsString() @MaxLength(2000) summary?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(50000) content?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(1000) context?: string;
+  /** Units: rent, sale or both, so the tags speak to tenants or buyers. */
+  @IsOptional() @IsIn(['rent', 'sale', 'both']) listing?: Listing;
 }
 
 class UnitDescriptionDto {
   /** The unit's facts as typed in Admin, one per line ("Diện tích: 70 m²"). */
   @Clean() @IsString() @MinLength(10) @MaxLength(4000) facts: string;
-  @IsIn(['rent', 'sale', 'both']) listing: 'rent' | 'sale' | 'both';
+  @IsIn(['rent', 'sale', 'both']) listing: Listing;
 }
 
 const WRITE: Record<SeoKind, string> = {

@@ -132,7 +132,19 @@ describe('AI SEO suggestions', () => {
     expect(res.body.data.title).toBe('Căn 2PN view sông Hàn, full nội thất tại Sun Panoma');
     expect(lastRequest.body.input).toContain('Diện tích: 70 m²');
     expect(lastRequest.body.system_instruction).toContain('KHÔNG bịa');
-    expect(lastRequest.body.system_instruction).toContain('cho thuê');
+    expect(lastRequest.body.system_instruction).toContain('khách tìm thuê');
+    // A unit for sale is written for buyers, not tenants; so are its SEO tags.
+    await editor.post('/api/v1/admin/ai/unit-description', { facts, listing: 'sale' }).expect(200);
+    expect(lastRequest.body.system_instruction).toContain('"Bán căn"');
+    expect(lastRequest.body.system_instruction).toContain('người mua');
+    expect(lastRequest.body.system_instruction).not.toContain('khách tìm thuê');
+    reply = answer({ seoTitle: 'Bán căn hộ 2PN Sun Panoma', seoDescription: 'Căn hộ 2 phòng ngủ 70 m² view sông Hàn tại Sun Panoma, đầy đủ nội thất. Liên hệ để xem nhà.', keywords: ['bán căn hộ sun panoma'], imageAlt: 'Căn hộ Sun Panoma' });
+    const unitSeo = { kind: 'property', title: 'Bán căn 2PN Sun Panoma', summary: 'Căn hộ 2 phòng ngủ 70 m² view sông Hàn, đầy đủ nội thất.' };
+    await editor.post('/api/v1/admin/ai/seo-suggest', { ...unitSeo, listing: 'sale' }).expect(200);
+    expect(lastRequest.body.system_instruction).toContain('"mua căn hộ … đà nẵng"');
+    await editor.post('/api/v1/admin/ai/seo-suggest', { ...unitSeo, listing: 'rent' }).expect(200);
+    expect(lastRequest.body.system_instruction).toContain('"Cho thuê căn hộ"');
+    await editor.post('/api/v1/admin/ai/seo-suggest', { ...unitSeo, listing: 'lease' }).expect(400);
     await editor.post('/api/v1/admin/ai/unit-description', { facts: 'ngắn', listing: 'rent' }).expect(400);
     const sales = await login(app, 'sales@dvg.test');
     await sales.post('/api/v1/admin/ai/unit-description', { facts, listing: 'rent' }).expect(403);
