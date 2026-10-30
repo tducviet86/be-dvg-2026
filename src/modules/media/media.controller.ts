@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import {
   CurrentUser,
   RequirePermissions,
@@ -29,6 +29,14 @@ import { MediaService, type MediaOwner } from './media.service.js';
 
 class MediaQuery extends PaginationQuery {
   @IsOptional() @IsIn(['image', 'video']) type?: 'image' | 'video';
+  /** Only files used somewhere, or only files nothing uses. */
+  @IsOptional() @IsIn(['used', 'unused']) usage?: 'used' | 'unused';
+  /** Searches the file path and the alt text. */
+  @IsOptional() @IsString() @MaxLength(100) q?: string;
+  @IsOptional() @IsIn(['newest', 'oldest', 'largest']) sort?: 'newest' | 'oldest' | 'largest';
+}
+class DeleteManyDto {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(100) @IsUUID('all', { each: true }) ids: string[];
 }
 class AltDto {
   @IsOptional() @IsString() @MaxLength(300) alt?: string;
@@ -61,23 +69,30 @@ export class MediaController {
   @Get()
   @RequirePermissions(PERMISSIONS.contentRead)
   async list(@Query() q: MediaQuery) {
-    const where = q.type ? { mimeType: { startsWith: `${q.type}/` } } : {};
-    const [rows, total] = await Promise.all([
-      this.prisma.mediaAsset.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (q.page - 1) * q.pageSize,
-        take: q.pageSize,
-      }),
-      this.prisma.mediaAsset.count({ where }),
-    ]);
-    return { data: rows, meta: pageMeta(q.page, q.pageSize, total) };
+    const { data, total } = await this.media.list(q);
+    return { data, meta: pageMeta(q.page, q.pageSize, total) };
   }
 
+  @Get('stats')
+  @RequirePermissions(PERMISSIONS.contentRead)
+  async stats() {
+    return { data: await this.media.stats() };
+  }
+
+  /** Usage counts, and the records using the file by name. */
   @Get(':id/usage')
   @RequirePermissions(PERMISSIONS.contentRead)
   async usage(@Param('id', ParseUUIDPipe) id: string) {
-    return { data: await this.media.usage(id) };
+    const [counts, places] = await Promise.all([this.media.usage(id), this.media.places(id)]);
+    return { data: { ...counts, places } };
+  }
+
+  /** Deletes several files at once; files still in use are kept. */
+  @Post('delete')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(PERMISSIONS.mediaWrite)
+  async removeMany(@Body() body: DeleteManyDto, @CurrentUser() user: AuthUser) {
+    return { data: await this.media.removeMany(body.ids, user.id) };
   }
 
   @Patch(':id')

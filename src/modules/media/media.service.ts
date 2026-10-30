@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { fileTypeFromBuffer } from 'file-type';
 import { createHash, randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -6,6 +6,7 @@ import { AppConfig } from '../../config/config.service.js';
 import { AppError, conflict, notFound } from '../../common/errors.js';
 import { plainText } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
 import { StorageService } from './storage.js';
 
@@ -37,8 +38,48 @@ export function mediaKey(place: { owner?: MediaOwner; code?: string }, ext: stri
   return `uploads/${now.getUTCFullYear()}/${pad(now.getUTCMonth() + 1)}/${randomUUID()}.${ext}`;
 }
 
+export type MediaUsage = { projects: number; properties: number; banners: number; posts: number; pages: number; other: number };
+const USAGE_KEYS = ['projects', 'properties', 'banners', 'posts', 'pages', 'other'] as const;
+export type MediaListQuery = {
+  page: number;
+  pageSize: number;
+  type?: 'image' | 'video';
+  usage?: 'used' | 'unused';
+  q?: string;
+  sort?: 'newest' | 'oldest' | 'largest';
+};
+const ORDER = { newest: 'created_at DESC', oldest: 'created_at ASC', largest: 'size_bytes DESC, created_at DESC' } as const;
+
+/**
+ * How many times each asset is used. Covers and galleries point at the
+ * asset's id; files pasted into text (photos inside an article or page,
+ * unit videos, settings) are found by their storage key in that text. A key
+ * containing "_" may match a little more than itself: that only ever keeps
+ * a file, never deletes one in use.
+ */
+const usageSelect = (where: Prisma.Sql) => Prisma.sql`
+  SELECT m.id, m.created_at, m.size_bytes,
+    (SELECT count(*) FROM projects p WHERE p.cover_image_id = m.id)
+      + (SELECT count(*) FROM project_images i WHERE i.media_id = m.id) AS projects,
+    (SELECT count(*) FROM properties p WHERE p.cover_image_id = m.id
+        OR p.video_url LIKE '%' || m.key || '%' OR p.description LIKE '%' || m.key || '%')
+      + (SELECT count(*) FROM property_images i WHERE i.media_id = m.id) AS properties,
+    (SELECT count(*) FROM banners b WHERE b.image_id = m.id OR b.mobile_image_id = m.id
+        OR b.description LIKE '%' || m.key || '%') AS banners,
+    (SELECT count(*) FROM blog_posts b WHERE b.cover_image_id = m.id OR b.content LIKE '%' || m.key || '%') AS posts,
+    (SELECT count(*) FROM static_pages s WHERE s.cover_image_id = m.id OR s.sections::text LIKE '%' || m.key || '%') AS pages,
+    (SELECT count(*) FROM site_settings s WHERE s.value::text LIKE '%' || m.key || '%')
+      + (SELECT count(*) FROM job_postings j WHERE j.description LIKE '%' || m.key || '%') AS other
+  FROM media_assets m WHERE ${where}`;
+const USED = Prisma.sql`(projects + properties + banners + posts + pages + other) > 0`;
+type UsageRow = { id: string } & Record<(typeof USAGE_KEYS)[number], bigint | number>;
+const toUsage = (row?: UsageRow): MediaUsage =>
+  Object.fromEntries(USAGE_KEYS.map((k) => [k, Number(row?.[k] ?? 0)])) as MediaUsage;
+const isUsed = (usage: MediaUsage) => Object.values(usage).some(Boolean);
+
 @Injectable()
 export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -123,29 +164,117 @@ export class MediaService {
     return asset;
   }
 
-  async usage(id: string) {
-    const [covers, gallery, propertyCovers, propertyImages, banners, posts, pages] =
-      await Promise.all([
-        this.prisma.project.count({ where: { coverImageId: id } }),
-        this.prisma.projectImage.count({ where: { mediaId: id } }),
-        this.prisma.property.count({ where: { coverImageId: id } }),
-        this.prisma.propertyImage.count({ where: { mediaId: id } }),
-        this.prisma.banner.count({ where: { OR: [{ imageId: id }, { mobileImageId: id }] } }),
-        this.prisma.blogPost.count({ where: { coverImageId: id } }),
-        this.prisma.staticPage.count({ where: { coverImageId: id } }),
-      ]);
-    return { projects: covers + gallery, properties: propertyCovers + propertyImages, banners, posts, pages };
+  /** Admin library: files with where they are used, filtered and sorted. */
+  async list(q: MediaListQuery) {
+    const filters = [Prisma.sql`TRUE`];
+    if (q.type) filters.push(Prisma.sql`m.mime_type LIKE ${`${q.type}/%`}`);
+    if (q.q) {
+      const like = `%${q.q.replace(/[\\%_]/g, '\\$&')}%`;
+      filters.push(Prisma.sql`(m.key ILIKE ${like} OR m.alt ILIKE ${like})`);
+    }
+    const base = usageSelect(Prisma.join(filters, ' AND '));
+    const having = q.usage === 'used' ? USED : q.usage === 'unused' ? Prisma.sql`NOT ${USED}` : Prisma.sql`TRUE`;
+    const [rows, [{ total }]] = await Promise.all([
+      this.prisma.$queryRaw<UsageRow[]>`
+        WITH u AS (${base}) SELECT * FROM u WHERE ${having}
+        ORDER BY ${Prisma.raw(ORDER[q.sort ?? 'newest'])} LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+      this.prisma.$queryRaw<{ total: bigint }[]>`WITH u AS (${base}) SELECT count(*) AS total FROM u WHERE ${having}`,
+    ]);
+    const assets = await this.prisma.mediaAsset.findMany({ where: { id: { in: rows.map((r) => r.id) } } });
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    const data = rows.flatMap((row) => {
+      const asset = byId.get(row.id);
+      if (!asset) return [];
+      const usage = toUsage(row);
+      return [{ ...asset, usage, used: isUsed(usage) }];
+    });
+    return { data, total: Number(total) };
   }
 
-  /** Refuses to delete media still referenced by any content. */
+  /** Totals for the library header: everything, and what nothing uses. */
+  async stats() {
+    const [row] = await this.prisma.$queryRaw<{ total: bigint; bytes: bigint | null; videos: bigint; unused: bigint; unused_bytes: bigint | null }[]>`
+      WITH u AS (${usageSelect(Prisma.sql`TRUE`)}), v AS (SELECT id FROM media_assets WHERE mime_type LIKE 'video/%')
+      SELECT count(*) AS total, sum(size_bytes) AS bytes,
+        (SELECT count(*) FROM v) AS videos,
+        count(*) FILTER (WHERE NOT ${USED}) AS unused,
+        sum(size_bytes) FILTER (WHERE NOT ${USED}) AS unused_bytes
+      FROM u`;
+    return {
+      total: Number(row.total),
+      bytes: Number(row.bytes ?? 0),
+      videos: Number(row.videos),
+      unused: Number(row.unused),
+      unusedBytes: Number(row.unused_bytes ?? 0),
+    };
+  }
+
+  async usage(id: string): Promise<MediaUsage> {
+    const [row] = await this.prisma.$queryRaw<UsageRow[]>`${usageSelect(Prisma.sql`m.id = ${id}::uuid`)}`;
+    return toUsage(row);
+  }
+
+  /** Where an asset is used, by name, so the editor can find it. */
+  async places(id: string) {
+    const asset = await this.prisma.mediaAsset.findUnique({ where: { id } });
+    if (!asset) throw notFound();
+    const inText = { contains: asset.key };
+    const [projects, properties, banners, posts, pages, settings, jobs] = await Promise.all([
+      this.prisma.project.findMany({ where: { OR: [{ coverImageId: id }, { images: { some: { mediaId: id } } }] }, select: { id: true, name: true } }),
+      this.prisma.property.findMany({
+        where: { OR: [{ coverImageId: id }, { images: { some: { mediaId: id } } }, { videoUrl: inText }, { description: inText }] },
+        select: { id: true, name: true },
+      }),
+      this.prisma.banner.findMany({ where: { OR: [{ imageId: id }, { mobileImageId: id }, { description: inText }] }, select: { id: true, title: true } }),
+      this.prisma.blogPost.findMany({ where: { OR: [{ coverImageId: id }, { content: inText }] }, select: { id: true, title: true } }),
+      this.prisma.$queryRaw<{ id: string; title: string }[]>`
+        SELECT id, title FROM static_pages WHERE cover_image_id = ${id}::uuid OR sections::text LIKE ${`%${asset.key}%`}`,
+      this.prisma.$queryRaw<{ key: string }[]>`SELECT key FROM site_settings WHERE value::text LIKE ${`%${asset.key}%`}`,
+      this.prisma.jobPosting.findMany({ where: { description: inText }, select: { id: true, title: true } }),
+    ]);
+    return [
+      ...projects.map((p) => ({ kind: 'projects', id: p.id, label: p.name })),
+      ...properties.map((p) => ({ kind: 'properties', id: p.id, label: p.name })),
+      ...banners.map((b) => ({ kind: 'banners', id: b.id, label: b.title })),
+      ...posts.map((p) => ({ kind: 'posts', id: p.id, label: p.title })),
+      ...pages.map((p) => ({ kind: 'pages', id: p.id, label: p.title })),
+      ...settings.map((s) => ({ kind: 'settings', id: s.key, label: `Cài đặt: ${s.key}` })),
+      ...jobs.map((j) => ({ kind: 'jobs', id: j.id, label: j.title })),
+    ];
+  }
+
+  /**
+   * Deletes the file (database row and stored object). Refuses media still
+   * used anywhere, including photos pasted into an article or page.
+   */
   async remove(id: string, actorId: string) {
     const asset = await this.prisma.mediaAsset.findUnique({ where: { id } });
     if (!asset) throw notFound();
     const usage = await this.usage(id);
-    if (Object.values(usage).some(Boolean))
-      throw conflict('Ảnh đang được sử dụng, hãy gỡ khỏi nội dung trước khi xóa.', usage);
+    if (isUsed(usage)) throw conflict('Ảnh đang được sử dụng, hãy gỡ khỏi nội dung trước khi xóa.', usage);
     await this.prisma.mediaAsset.delete({ where: { id } });
-    if (asset.storage !== 'EXTERNAL') await this.storage.driver.remove(asset.key);
-    await this.audit.log({ actorId, action: 'media.delete', entityType: 'media', entityId: id, changes: { key: asset.key } });
+    if (asset.storage !== 'EXTERNAL')
+      // The row is gone either way; a file left behind only costs storage.
+      await this.storage.driver.remove(asset.key).catch((err: unknown) => this.logger.warn({ err, key: asset.key }, 'stored file not removed'));
+    await this.audit.log({ actorId, action: 'media.delete', entityType: 'media', entityId: id, changes: { key: asset.key, bytes: asset.sizeBytes } });
+  }
+
+  /** Deletes the unused files among `ids`; files in use are kept and listed. */
+  async removeMany(ids: string[], actorId: string) {
+    let deleted = 0;
+    let bytes = 0;
+    const kept: string[] = [];
+    for (const id of new Set(ids)) {
+      const asset = await this.prisma.mediaAsset.findUnique({ where: { id }, select: { sizeBytes: true } });
+      if (!asset) continue;
+      try {
+        await this.remove(id, actorId);
+        deleted++;
+        bytes += asset.sizeBytes;
+      } catch {
+        kept.push(id);
+      }
+    }
+    return { deleted, bytes, kept };
   }
 }

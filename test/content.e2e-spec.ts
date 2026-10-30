@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -210,6 +212,41 @@ describe('media library', () => {
     await admin.post('/api/v1/admin/banners', { type: 'NORMAL', title: 'Banner', imageId: media.id }).expect(201);
     const res = await admin.del(`/api/v1/admin/media/${media.id}`).expect(409);
     expect(res.body.error.details.banners).toBe(1);
+  });
+
+  it('shows where each file is used and deletes unused files from storage too', async () => {
+    const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#2a5c4a' } }).png().toBuffer();
+    const upload = async () =>
+      (await admin.agent.post('/api/v1/admin/media/upload').set('x-csrf-token', admin.csrf).attach('file', png, { filename: 'x.png', contentType: 'image/png' }).expect(201)).body.data;
+    const [inArticle, spare, other] = [await upload(), await upload(), await upload()];
+    // A photo pasted into an article counts as used, like a cover.
+    await admin.post('/api/v1/admin/blog/posts', {
+      slug: 'bai-co-anh', title: 'Bài có ảnh', excerpt: 'Tóm tắt bài có ảnh chèn.', category: 'tin-doanh-nghiep',
+      content: `Đoạn mở đầu.\n\n![Phòng khách](${inArticle.url})\n\nĐoạn cuối.`,
+    }).expect(201);
+    const blocked = await admin.del(`/api/v1/admin/media/${inArticle.id}`).expect(409);
+    expect(blocked.body.error.details.posts).toBe(1);
+    const usage = await admin.get(`/api/v1/admin/media/${inArticle.id}/usage`).expect(200);
+    expect(usage.body.data.places).toEqual([{ kind: 'posts', id: expect.any(String), label: 'Bài có ảnh' }]);
+    // The library lists usage and filters unused files.
+    const unused = (await admin.get('/api/v1/admin/media?usage=unused&pageSize=100').expect(200)).body.data.map((m: { id: string }) => m.id);
+    expect(unused).toEqual(expect.arrayContaining([spare.id, other.id]));
+    expect(unused).not.toContain(inArticle.id);
+    const used = (await admin.get('/api/v1/admin/media?usage=used&pageSize=100').expect(200)).body.data;
+    expect(used.find((m: { id: string }) => m.id === inArticle.id)).toMatchObject({ used: true, usage: { posts: 1 } });
+    const before = (await admin.get('/api/v1/admin/media/stats').expect(200)).body.data;
+    expect(before.unused).toBeGreaterThanOrEqual(2);
+    expect(before.bytes).toBeGreaterThan(0);
+    // Deleting several: unused ones go (database and stored file), the used one stays.
+    const stored = join(process.env.LOCAL_MEDIA_DIR!, spare.key);
+    expect(existsSync(stored)).toBe(true);
+    const res = await admin.post('/api/v1/admin/media/delete', { ids: [spare.id, other.id, inArticle.id] }).expect(200);
+    expect(res.body.data).toMatchObject({ deleted: 2, kept: [inArticle.id] });
+    expect(existsSync(stored)).toBe(false);
+    expect(await prisma.mediaAsset.count({ where: { id: { in: [spare.id, other.id] } } })).toBe(0);
+    const after = (await admin.get('/api/v1/admin/media/stats').expect(200)).body.data;
+    expect(after.unused).toBe(before.unused - 2);
+    await admin.post('/api/v1/admin/media/delete', { ids: ['khong-phai-id'] }).expect(400);
   });
 });
 
