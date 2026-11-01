@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { CoreModule } from './database/database.module.js';
 import { IndexNowModule } from './modules/indexnow/indexnow.service.js';
+import { ReviewsModule } from './modules/reviews/reviews.controller.js';
 import { DashboardModule } from './modules/dashboard/dashboard.controller.js';
 import { AiModule } from './modules/ai/ai.controller.js';
 import { AuditModule } from './modules/audit/audit.module.js';
@@ -61,6 +62,7 @@ import { UsersModule } from './modules/users/users.module.js';
     UsersModule,
     MediaModule,
     DashboardModule,
+    ReviewsModule,
     BannersModule,
     ProjectsModule,
     PropertiesModule,

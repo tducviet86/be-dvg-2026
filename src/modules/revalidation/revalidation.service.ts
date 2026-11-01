@@ -9,6 +9,7 @@ export type CacheTag =
   | 'blog'
   | 'pages'
   | 'jobs'
+  | 'reviews'
   | 'settings';
 
 /**

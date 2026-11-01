@@ -26,6 +26,12 @@ export const SETTING_KEYS: Record<string, { public: boolean; max: number }> = {
   'social.facebook': { public: true, max: 300 },
   'social.zalo': { public: true, max: 300 },
   'social.youtube': { public: true, max: 300 },
+  // Google reviews: the profile's review page, its "write a review" link,
+  // and the overall rating / count shown there (copied by staff).
+  'reviews.googleUrl': { public: true, max: 500 },
+  'reviews.googleWriteUrl': { public: true, max: 500 },
+  'reviews.googleRating': { public: true, max: 4 },
+  'reviews.googleCount': { public: true, max: 6 },
   'seo.defaultTitle': { public: true, max: 120 },
   'seo.defaultDescription': { public: true, max: 320 },
   'leads.notificationEmail': { public: false, max: 120 },

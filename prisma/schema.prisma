@@ -244,6 +244,7 @@ model Project {
   properties Property[]
   banner     Banner?
   leads      Lead[]
+  reviews    Review[]
 
   @@index([status, deletedAt, sortOrder])
   @@map("projects")
@@ -424,6 +425,34 @@ enum BannerType {
 /// Single source of truth for homepage banners. A PROJECT banner is unique
 /// per project (projectId @unique); CHECK constraint in the migration
 /// enforces type ⇔ projectId consistency.
+/// "Khách hàng nói gì": reviews staff copy from Google (or Facebook, or
+/// received directly), shown on the website with a link to the original.
+model Review {
+  id          String       @id @default(uuid()) @db.Uuid
+  authorName  String       @map("author_name")
+  rating      Int // 1–5 stars
+  content     String
+  source      ReviewSource @default(GOOGLE)
+  sourceUrl   String?      @map("source_url")
+  reviewedAt  DateTime     @map("reviewed_at") @db.Date
+  /// Optional: the project the review is about (shown on its pages).
+  projectId   String?      @map("project_id") @db.Uuid
+  isPublished Boolean      @default(true) @map("is_published")
+  sortOrder   Int          @default(0) @map("sort_order")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([isPublished, sortOrder])
+  @@map("reviews")
+}
+
+enum ReviewSource {
+  GOOGLE
+  FACEBOOK
+  DIRECT
+}
+
 model Banner {
   id              String      @id @default(uuid()) @db.Uuid
   type            BannerType
