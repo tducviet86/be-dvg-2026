@@ -51,6 +51,13 @@ export const envSchema = z
     S3_FORCE_PATH_STYLE: bool,
     FRONTEND_REVALIDATE_URL: z.string().url().optional().or(z.literal('')),
     REVALIDATE_SECRET: z.string().optional().default(''),
+    /**
+     * IndexNow (Bing, Naver, Yandex…): tells search engines a page changed.
+     * The key is public by design; the website serves it at /<key>.txt.
+     * Never sent from a local site (localhost, .test). Empty endpoint = off.
+     */
+    INDEXNOW_KEY: z.string().regex(/^[a-zA-Z0-9-]{8,128}$/).default('f2f3bf2db002372ff737c2fcfe17c9ba'),
+    INDEXNOW_ENDPOINT: z.string().url().or(z.literal('')).default('https://api.indexnow.org/indexnow'),
     IP_HASH_SALT: z.string().min(16, 'IP_HASH_SALT must be at least 16 chars'),
     /** Gemini API key for AI SEO suggestions; empty = feature off. */
     GEMINI_API_KEY: z.string().optional().default(''),

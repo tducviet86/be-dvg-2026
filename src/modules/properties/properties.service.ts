@@ -13,6 +13,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
+import { IndexNowService } from '../indexnow/indexnow.service.js';
 import type { AdminPropertyQuery, CreatePropertyDto, PublicPropertyQuery, UpdatePropertyDto } from './properties.dto.js';
 
 const include = {
@@ -130,6 +131,7 @@ export class PropertiesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly revalidation: RevalidationService,
+    private readonly indexNow: IndexNowService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -313,6 +315,7 @@ export class PropertiesService {
       return row.id;
     });
     await this.revalidation.trigger('properties', 'projects');
+    await this.indexNow.changed('property', id);
     this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
@@ -357,6 +360,7 @@ export class PropertiesService {
       await this.audit.log({ actorId: user.id, action: 'property.update', entityType: 'property', entityId: id, changes: JSON.parse(JSON.stringify(dto)) }, tx);
     });
     await this.revalidation.trigger('properties', 'projects');
+    await this.indexNow.changed('property', id);
     this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
@@ -369,6 +373,7 @@ export class PropertiesService {
       await this.audit.log({ actorId: user.id, action: 'property.archive', entityType: 'property', entityId: id, changes: { slug: existing.slug } }, tx);
     });
     await this.revalidation.trigger('properties', 'projects');
+    await this.indexNow.changed('property', id);
   }
 
   private assertPublishRight(next: string | undefined, current: string | undefined, user: AuthUser) {

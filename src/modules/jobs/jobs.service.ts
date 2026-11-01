@@ -14,6 +14,7 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
+import { IndexNowService } from '../indexnow/indexnow.service.js';
 import type { AdminJobQuery, ApplicationQuery, ApplyDto, CreateJobDto, PublicJobQuery, UpdateApplicationDto, UpdateJobDto } from './jobs.dto.js';
 
 /** CV upload limit (also enforced by multer in the controller). */
@@ -109,6 +110,7 @@ export class JobsService {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly revalidation: RevalidationService,
+    private readonly indexNow: IndexNowService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -223,7 +225,7 @@ export class JobsService {
     if (await this.prisma.jobPosting.findUnique({ where: { slug: dto.slug }, select: { id: true } })) throw conflict('Đường dẫn đã được dùng cho tin khác.');
     const job = await this.prisma.jobPosting.create({ data: { ...this.data(dto), ...publishFields(dto.status ?? 'DRAFT') } as Prisma.JobPostingCreateInput });
     await this.audit.log({ actorId: user.id, action: 'job.create', entityType: 'job', entityId: job.id, changes: { slug: job.slug } });
-    await this.saved(dto);
+    await this.saved(dto, job.id);
     return toAdmin(job);
   }
 
@@ -236,7 +238,7 @@ export class JobsService {
       throw conflict('Đường dẫn đã được dùng cho tin khác.');
     const job = await this.prisma.jobPosting.update({ where: { id }, data: { ...this.data(dto), ...publishFields(dto.status, existing) } });
     await this.audit.log({ actorId: user.id, action: 'job.update', entityType: 'job', entityId: id, changes: { slug: job.slug, status: job.status } });
-    await this.saved(dto);
+    await this.saved(dto, id);
     return toAdmin(job);
   }
 
@@ -247,6 +249,7 @@ export class JobsService {
     await this.prisma.jobPosting.update({ where: { id }, data: { status: 'ARCHIVED', deletedAt: new Date() } });
     await this.audit.log({ actorId: user.id, action: 'job.archive', entityType: 'job', entityId: id, changes: { slug: existing.slug } });
     await this.revalidation.trigger('jobs');
+    await this.indexNow.changed('job', id);
   }
 
   // ── Admin: applications ─────────────────────────────────────────────────
@@ -313,8 +316,9 @@ export class JobsService {
     };
   }
 
-  private async saved(dto: UpdateJobDto) {
+  private async saved(dto: UpdateJobDto, id: string) {
     await this.revalidation.trigger('jobs');
+    await this.indexNow.changed('job', id);
     this.i18n.queueContent({ title: dto.title, department: dto.department, location: dto.location, summary: dto.summary, salaryNote: dto.salaryNote });
   }
 

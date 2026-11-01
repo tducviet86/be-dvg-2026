@@ -12,6 +12,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
+import { IndexNowService } from '../indexnow/indexnow.service.js';
 import type { AdminPostQuery, CategoryDto, CreatePostDto, PublicPostQuery, UpdatePostDto } from './blog.dto.js';
 
 const include = {
@@ -44,6 +45,7 @@ export class BlogService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly revalidation: RevalidationService,
+    private readonly indexNow: IndexNowService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -140,6 +142,7 @@ export class BlogService {
       return post.id;
     });
     await this.revalidation.trigger('blog');
+    await this.indexNow.changed('post', id);
     this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
@@ -177,6 +180,7 @@ export class BlogService {
       await this.audit.log({ actorId: user.id, action: 'post.update', entityType: 'post', entityId: id, changes: JSON.parse(JSON.stringify({ ...dto, content: dto.content === undefined ? undefined : '[updated]' })) }, tx);
     });
     await this.revalidation.trigger('blog');
+    await this.indexNow.changed('post', id);
     this.i18n.queueContent(dto);
     return this.adminGet(id);
   }
@@ -187,6 +191,7 @@ export class BlogService {
     await this.prisma.blogPost.update({ where: { id }, data: { deletedAt: new Date(), status: 'ARCHIVED' } });
     await this.audit.log({ actorId: user.id, action: 'post.archive', entityType: 'post', entityId: id, changes: { slug: existing.slug } });
     await this.revalidation.trigger('blog');
+    await this.indexNow.changed('post', id);
   }
 
   async categories() {

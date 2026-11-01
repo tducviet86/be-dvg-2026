@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { CoreModule } from './database/database.module.js';
+import { IndexNowModule } from './modules/indexnow/indexnow.service.js';
 import { DashboardModule } from './modules/dashboard/dashboard.controller.js';
 import { AiModule } from './modules/ai/ai.controller.js';
 import { AuditModule } from './modules/audit/audit.module.js';
@@ -55,6 +56,7 @@ import { UsersModule } from './modules/users/users.module.js';
     MailModule,
     I18nModule,
     RevalidationModule,
+    IndexNowModule,
     AuthModule,
     UsersModule,
     MediaModule,

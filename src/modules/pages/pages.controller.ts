@@ -34,6 +34,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
+import { IndexNowService } from '../indexnow/indexnow.service.js';
 
 const PATH = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
 /** First URL segments that belong to built-in website pages. */
@@ -112,6 +113,7 @@ export class PagesController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly revalidation: RevalidationService,
+    private readonly indexNow: IndexNowService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -186,6 +188,7 @@ export class PagesController {
     const page = await this.prisma.staticPage.create({ data: { ...data, ...publishFields(dto.status ?? 'DRAFT') }, include });
     await this.audit.log({ actorId: user.id, action: 'page.create', entityType: 'page', entityId: page.id, changes: { path: page.path } });
     await this.revalidation.trigger('pages');
+    await this.indexNow.changed('page', page.id);
     this.i18n.queueContent(dto);
     return { data: toAdmin(page) };
   }
@@ -201,6 +204,7 @@ export class PagesController {
     const page = await this.prisma.staticPage.update({ where: { id }, data: { ...data, ...publishFields(dto.status, existing) }, include });
     await this.audit.log({ actorId: user.id, action: 'page.update', entityType: 'page', entityId: id, changes: { path: page.path, status: page.status } });
     await this.revalidation.trigger('pages');
+    await this.indexNow.changed('page', id);
     this.i18n.queueContent(dto);
     return { data: toAdmin(page) };
   }
@@ -216,6 +220,7 @@ export class PagesController {
     await this.prisma.staticPage.update({ where: { id }, data: { status: 'ARCHIVED' } });
     await this.audit.log({ actorId: user.id, action: 'page.archive', entityType: 'page', entityId: id, changes: { path: existing.path } });
     await this.revalidation.trigger('pages');
+    await this.indexNow.changed('page', id);
   }
 
   /** Checks the path for its kind and builds the row data. */
