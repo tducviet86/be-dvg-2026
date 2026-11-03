@@ -61,7 +61,7 @@ function toPublic(p: Row, interest?: Interest) {
     slug: p.slug,
     name: p.name,
     project: { id: p.project.id, slug: p.project.slug, name: p.project.name },
-    propertyType: { code: p.propertyType.code, name: p.propertyType.name },
+    propertyType: { code: p.propertyType.code, name: p.propertyType.name, group: p.propertyType.group },
     unitCode: p.unitCode,
     forRent: p.forRent,
     forSale: p.forSale,
@@ -249,7 +249,7 @@ export class PropertiesService {
   }
 
   types() {
-    return this.prisma.propertyType.findMany({ orderBy: { sortOrder: 'asc' }, select: { code: true, name: true } });
+    return this.prisma.propertyType.findMany({ orderBy: { sortOrder: 'asc' }, select: { code: true, name: true, group: true } });
   }
 
   async adminList(q: AdminPropertyQuery) {

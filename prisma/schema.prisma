@@ -312,6 +312,8 @@ model PropertyType {
   id         String     @id @default(uuid()) @db.Uuid
   code       String     @unique
   name       String
+  /// apartment (Căn hộ) | townhouse (Nhà phố) | premises (Mặt bằng).
+  group      String     @default("apartment")
   sortOrder  Int        @default(0) @map("sort_order")
   properties Property[]
 

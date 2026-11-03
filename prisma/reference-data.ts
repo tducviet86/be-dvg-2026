@@ -46,16 +46,20 @@ export async function seedReference(prisma: PrismaClient) {
   ];
   for (const [i, [code, name]] of categories.entries())
     await prisma.projectCategory.upsert({ where: { code }, create: { code, name, sortOrder: i }, update: { name, sortOrder: i } });
+  // Same list as migration 20261103060000_property_type_groups.
   const types = [
-    ['studio', 'Studio'],
-    ['1pn', '1 phòng ngủ'],
-    ['2pn', '2 phòng ngủ'],
-    ['3pn', '3 phòng ngủ'],
-    ['serviced', 'Căn hộ dịch vụ'],
-    ['penthouse', 'Penthouse'],
+    ['studio', 'Studio', 'apartment'],
+    ['1pn', '1 phòng ngủ', 'apartment'],
+    ['2pn', '2 phòng ngủ', 'apartment'],
+    ['3pn', '3 phòng ngủ', 'apartment'],
+    ['shophouse', 'Shophouse', 'apartment'],
+    ['serviced', 'Căn hộ dịch vụ', 'apartment'],
+    ['penthouse', 'Penthouse', 'apartment'],
+    ['nha-pho', 'Nhà phố', 'townhouse'],
+    ['mat-bang', 'Mặt bằng', 'premises'],
   ];
-  for (const [i, [code, name]] of types.entries())
-    await prisma.propertyType.upsert({ where: { code }, create: { code, name, sortOrder: i }, update: { name, sortOrder: i } });
+  for (const [i, [code, name, group]] of types.entries())
+    await prisma.propertyType.upsert({ where: { code }, create: { code, name, group, sortOrder: i }, update: { name, group, sortOrder: i } });
   const blogCategories = [
     ['tin-doanh-nghiep', 'Tin doanh nghiệp'],
     ['thi-truong-bat-dong-san', 'Thị trường bất động sản'],
