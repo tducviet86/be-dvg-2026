@@ -10,7 +10,9 @@ export type CacheTag =
   | 'pages'
   | 'jobs'
   | 'reviews'
-  | 'settings';
+  | 'settings'
+  /** New or corrected translations: the site reloads its dictionaries. */
+  | 'i18n';
 
 /**
  * Tells the frontend to drop cached pages after a successful write. Awaited

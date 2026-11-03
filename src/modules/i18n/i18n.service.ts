@@ -4,6 +4,7 @@ import { AppConfig } from '../../config/config.service.js';
 import { notFound, stale } from '../../common/errors.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
+import { RevalidationService } from '../revalidation/revalidation.service.js';
 
 export const LOCALES = ['en', 'ko', 'zh'] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -16,9 +17,9 @@ const LANGUAGE: Record<Locale, string> = {
 
 /** Per-language conventions so the same terms are always rendered the same way. */
 const GLOSSARY: Record<Locale, string> = {
-  en: `"Đà Nẵng" → "Da Nang"; "Sơn Trà" → "Son Tra"; "Hải Châu" → "Hai Chau"; "Ngũ Hành Sơn" → "Ngu Hanh Son"; "căn hộ" → "apartment"; "căn hộ dịch vụ" → "serviced apartment"; "phòng ngủ" → "bedroom"; "ký gửi" → "consignment"; "chủ đầu tư" → "developer"; "triệu" → "million VND" (7,5 triệu → 7.5 million VND); "tỷ" → "billion VND"; "/ tháng" → "/ month"; "Còn trống" → "Available"; "Đã cho thuê" → "Leased"; "Căn mẫu" → "Sample unit".`,
-  ko: `"Đà Nẵng" → "다낭"; "Sơn Trà" → "선짜"; "Hải Châu" → "하이쩌우"; "căn hộ" → "아파트"; "căn hộ dịch vụ" → "서비스드 아파트"; "phòng ngủ" → "침실"; "ký gửi" → "위탁"; "chủ đầu tư" → "개발사"; "triệu" → "백만 동" (7,5 triệu → 750만 동); "tỷ" → "십억 동"; "/ tháng" → "/월"; "Còn trống" → "입주 가능"; "Đã cho thuê" → "임대 완료"; "Căn mẫu" → "샘플 세대".`,
-  zh: `"Đà Nẵng" → "岘港"; "Sơn Trà" → "山茶"; "Hải Châu" → "海洲"; "căn hộ" → "公寓"; "căn hộ dịch vụ" → "服务式公寓"; "phòng ngủ" → "卧室"; "ký gửi" → "委托"; "chủ đầu tư" → "开发商"; "triệu" → "百万越南盾" (7,5 triệu → 750万越南盾); "tỷ" → "十亿越南盾"; "/ tháng" → "/月"; "Còn trống" → "可租"; "Đã cho thuê" → "已出租"; "Căn mẫu" → "样板房".`,
+  en: `"Đà Nẵng" → "Da Nang"; "Sơn Trà" → "Son Tra"; "Hải Châu" → "Hai Chau"; "Ngũ Hành Sơn" → "Ngu Hanh Son"; "căn hộ" → "apartment"; "căn hộ dịch vụ" → "serviced apartment"; "phòng ngủ" → "bedroom"; "ký gửi" → "consignment"; "chủ đầu tư" → "developer"; "triệu" → "million VND" (7,5 triệu → 7.5 million VND); "tỷ" → "billion VND"; "đ" after an amount → "VND" (25.000.000 đ → 25,000,000 VND); "/ tháng" → "/ month"; "Còn trống" → "Available"; "Đã cho thuê" → "Leased"; "Căn mẫu" → "Sample unit".`,
+  ko: `"Đà Nẵng" → "다낭"; "Sơn Trà" → "선짜"; "Hải Châu" → "하이쩌우"; "căn hộ" → "아파트"; "căn hộ dịch vụ" → "서비스드 아파트"; "phòng ngủ" → "침실"; "ký gửi" → "위탁"; "chủ đầu tư" → "개발사"; "triệu" → "백만 동" (7,5 triệu → 750만 동); "tỷ" → "십억 동"; "đ" after an amount → "동" (25.000.000 đ → 25.000.000동); "/ tháng" → "/월"; "Còn trống" → "입주 가능"; "Đã cho thuê" → "임대 완료"; "Căn mẫu" → "샘플 세대".`,
+  zh: `"Đà Nẵng" → "岘港"; "Sơn Trà" → "山茶"; "Hải Châu" → "海洲"; "căn hộ" → "公寓"; "căn hộ dịch vụ" → "服务式公寓"; "phòng ngủ" → "卧室"; "ký gửi" → "委托"; "chủ đầu tư" → "开发商"; "triệu" → "百万越南盾" (7,5 triệu → 750万越南盾); "tỷ" → "十亿越南盾"; "đ" after an amount → "越南盾" (25.000.000 đ → 25.000.000越南盾); "/ tháng" → "/月"; "Còn trống" → "可租"; "Đã cho thuê" → "已出租"; "Căn mẫu" → "样板房".`,
 };
 
 const system = (locale: Locale) => `You are a professional translator for the website of Đất Vàng Group, a real-estate company in Da Nang, Vietnam (projects, apartments for rent, property management).
@@ -40,8 +41,10 @@ const needsTranslation = (text: string) => /[A-Za-zÀ-ỹ]{2,}/.test(text);
 /** Letters only Vietnamese uses; a translation must not contain them (brand aside). */
 const VIETNAMESE = /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i;
 const BRAND = /Đất Vàng|ĐẤT VÀNG/g;
+/** The đồng sign after an amount ("25.000.000 đ", "25tr đ/tháng") is not Vietnamese text. */
+const DONG = /(\d)\s*đ(?![a-zà-ỹ])/gi;
 /** A model sometimes echoes the source: such answers are dropped and retried later. */
-export const untranslated = (text: string) => VIETNAMESE.test(text.replace(BRAND, ''));
+export const untranslated = (text: string) => VIETNAMESE.test(text.replace(BRAND, '').replace(DONG, '$1'));
 const normalise = (text: string) => text.replace(/\s+/g, ' ').trim();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
@@ -85,6 +88,7 @@ export class I18nService {
     private readonly prisma: PrismaService,
     private readonly ai: AiService,
     private readonly config: AppConfig,
+    private readonly revalidation: RevalidationService,
   ) {}
 
   get enabled() {
@@ -148,6 +152,9 @@ export class I18nService {
         await this.translate(locale, texts).catch((err: unknown) =>
           this.logger.warn({ err: (err as Error).message, locale }, 'content translation failed'),
         );
+        // Each language shows as soon as it is ready, not at the next
+        // dictionary refresh (up to a minute later).
+        await this.revalidation.trigger('i18n');
       }
     })();
   }
@@ -177,7 +184,9 @@ export class I18nService {
     const row = await this.prisma.translation.findUnique({ where: { id } });
     if (!row) throw notFound();
     if (expectedUpdatedAt && row.updatedAt.toISOString() !== new Date(expectedUpdatedAt).toISOString()) throw stale();
-    return this.prisma.translation.update({ where: { id }, data: { text: text.trim(), reviewed: true } });
+    const saved = await this.prisma.translation.update({ where: { id }, data: { text: text.trim(), reviewed: true } });
+    await this.revalidation.trigger('i18n');
+    return saved;
   }
 
   private async translateMissing(locale: Locale, missing: { source: string; hash: string }[]) {

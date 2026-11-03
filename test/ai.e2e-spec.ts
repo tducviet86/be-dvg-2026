@@ -232,6 +232,20 @@ describe('website translation', () => {
     ]);
   });
 
+  it('keeps Korean and Chinese prices that end with the đồng sign', async () => {
+    queue = [];
+    reply = answer({ items: [{ i: 0, t: '1개월 임대료 · 25.000.000 đ' }, { i: 1, t: '샵하우스 임대료는 월 25.000.000 đ입니다.' }] });
+    const res = await translate({ locale: 'ko', texts: ['1 tháng tiền nhà · 25.000.000 đ', 'Giá cho thuê căn shophouse là 25.000.000 đ/tháng.'] }).expect(200);
+    expect(res.body.data.translations).toEqual({
+      '1 tháng tiền nhà · 25.000.000 đ': '1개월 임대료 · 25.000.000 đ',
+      'Giá cho thuê căn shophouse là 25.000.000 đ/tháng.': '샵하우스 임대료는 월 25.000.000 đ입니다.',
+    });
+    // An answer that is still Vietnamese is dropped, đồng sign or not.
+    reply = answer({ items: [{ i: 0, t: 'Giá thuê 30.000.000 đ' }] });
+    expect((await translate({ locale: 'ko', texts: ['Giá thuê 30.000.000 đ'] }).expect(200)).body.data.translations).toEqual({});
+    expect(lastRequest.body.system_instruction).toContain('"đ" after an amount → "동"');
+  });
+
   it('leaves text untranslated when Gemini fails and rejects bad input', async () => {
     reply = { status: 503, body: {} };
     const res = await translate({ locale: 'ko', texts: ['Liên hệ'] }).expect(200);
