@@ -404,7 +404,7 @@ describe('properties', () => {
     await admin.post('/api/v1/admin/properties', { slug: 'pn-bad', name: 'Căn sai', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', highlight: 'sieu-hot' }).expect(400);
     const browser = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1';
     const view = (slug: string, ua = browser) => http().post(`/api/v1/properties/${slug}/view`).set('user-agent', ua).expect(204);
-    // 10 visits + 2 enquiries (worth 5 views each) reach the trending score of 20.
+    // 10 visits + 4 enquiries (worth 5 views each) reach the trending score of 30.
     for (let n = 0; n < 9; n++) await view('pn-hot');
     await view('pn-hot', 'Googlebot/2.1 (+http://www.google.com/bot.html)'); // not counted
     await view('pn-demo'); // samples are not counted
@@ -412,15 +412,15 @@ describe('properties', () => {
     let unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
     expect(unitBody).toMatchObject({ highlight: 'exclusive', trending: false, interestScore: 9 });
     await view('pn-hot');
-    for (const email of ['a@example.com', 'b@example.com'])
+    for (const email of ['a@example.com', 'b@example.com', 'c@example.com', 'd@example.com'])
       await prisma.lead.create({ data: { kind: 'INQUIRY', source: 'Tư vấn căn hộ', name: 'Khách', email, message: 'Tôi muốn xem căn.', propertyId: body.data.id, consentAt: new Date() } });
     unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
     expect(unitBody.trending).toBe(true);
-    expect(unitBody.interestScore).toBe(20);
+    expect(unitBody.interestScore).toBe(30);
     const list = (await http().get('/api/v1/properties?project=panoma').expect(200)).body.data;
     expect(list.find((p: { slug: string }) => p.slug === 'pn-hot').trending).toBe(true);
     const adminUnit = (await admin.get(`/api/v1/admin/properties/${body.data.id}`).expect(200)).body.data;
-    expect(adminUnit.interest).toEqual({ days: 14, views: 10, leads: 2 });
+    expect(adminUnit.interest).toEqual({ days: 14, views: 10, leads: 4 });
     expect(await prisma.propertyViewDay.count()).toBe(1);
     // The badge can be removed again.
     await admin.patch(`/api/v1/admin/properties/${body.data.id}`, { highlight: null }).expect(200);

@@ -30,7 +30,7 @@ type Row = Prisma.PropertyGetPayload<{ include: typeof include }>;
  * an enquiry weighing as much as LEAD_WEIGHT views.
  */
 export const INTEREST_DAYS = 14;
-export const TRENDING_SCORE = 20;
+export const TRENDING_SCORE = 30;
 const LEAD_WEIGHT = 5;
 export type Interest = { views: number; leads: number };
 
