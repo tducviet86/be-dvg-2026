@@ -33,6 +33,22 @@ export const INTEREST_DAYS = 14;
 export const TRENDING_SCORE = 20;
 const LEAD_WEIGHT = 5;
 export type Interest = { views: number; leads: number };
+
+/**
+ * Rented or sold units stay on the site RENTED_HIDE_DAYS days after the
+ * change ("Đã cho thuê" shows), then leave the lists; marking one "Còn
+ * trống" again brings it back. Admin keeps them under "Đã cho thuê".
+ */
+export const RENTED_HIDE_DAYS = 5;
+const TAKEN = ['RENTED', 'SOLD'] as const;
+const hideCutoff = () => new Date(Date.now() - RENTED_HIDE_DAYS * 86_400_000);
+/** Units taken long enough ago to be off the site. */
+export const hiddenTaken = (): Prisma.PropertyWhereInput => ({
+  availability: { in: [...TAKEN] },
+  availabilityChangedAt: { lt: hideCutoff() },
+});
+const isHidden = (p: Pick<Row, 'availability' | 'availabilityChangedAt'>) =>
+  (TAKEN as readonly string[]).includes(p.availability) && p.availabilityChangedAt < hideCutoff();
 const interestScore = (i?: Interest) => (i ? i.views + i.leads * LEAD_WEIGHT : 0);
 const trending = (i?: Interest) => interestScore(i) >= TRENDING_SCORE;
 /** Crawlers and link previews do not count as interest. */
@@ -51,6 +67,8 @@ function toPublic(p: Row, interest?: Interest) {
     forSale: p.forSale,
     isConsignment: p.isConsignment,
     availability: p.availability,
+    /** Rented / sold over RENTED_HIDE_DAYS days ago: off the lists, page noindex. */
+    delisted: isHidden(p),
     isDemo: p.isDemo,
     location: p.location,
     address: p.address,
@@ -89,6 +107,7 @@ function toAdmin(p: Row, interest?: Interest, editors?: Editors) {
     createdBy: editors?.createdBy ?? null,
     updatedBy: editors?.updatedBy ?? null,
     interest: { days: INTEREST_DAYS, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
+    availabilityChangedAt: p.availabilityChangedAt,
     status: p.status,
     projectId: p.projectId,
     coverImageId: p.coverImageId,
@@ -152,7 +171,7 @@ export class PropertiesService {
   }
 
   async publicList(q: PublicPropertyQuery) {
-    const where: Prisma.PropertyWhereInput = { ...publishedWhere(), project: publishedWhere(), ...this.filters(q) };
+    const where: Prisma.PropertyWhereInput = { ...publishedWhere(), project: publishedWhere(), ...this.filters(q), NOT: hiddenTaken() };
     if (q.project) where.project = { ...publishedWhere(), slug: q.project };
     const [rows, total, facets] = await Promise.all([
       this.prisma.property.findMany({ where, include, orderBy: orderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
@@ -239,6 +258,9 @@ export class PropertiesService {
       status: q.status,
       ...this.filters(q),
       ...(q.highlight === 'none' ? { highlight: null } : q.highlight ? { highlight: q.highlight } : {}),
+      // Without a status filter or a search, units off the site wait under
+      // "Đã cho thuê" / "Đã bán" instead of filling the list.
+      ...(!q.availability && !q.q ? { NOT: hiddenTaken() } : {}),
     };
     const [rows, total] = await Promise.all([
       this.prisma.property.findMany({ where, include, orderBy: adminOrderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
@@ -252,11 +274,12 @@ export class PropertiesService {
   /** Counts for the admin list's summary cards (archived units left out). */
   async adminStats() {
     const where = { deletedAt: null, status: { not: 'ARCHIVED' as const } };
-    const [byStatus, byAvailability, highlighted, demo] = await Promise.all([
+    const [byStatus, byAvailability, highlighted, demo, delisted] = await Promise.all([
       this.prisma.property.groupBy({ by: ['status'], where, _count: { _all: true } }),
       this.prisma.property.groupBy({ by: ['availability'], where, _count: { _all: true } }),
       this.prisma.property.count({ where: { ...where, highlight: { not: null } } }),
       this.prisma.property.count({ where: { ...where, isDemo: true } }),
+      this.prisma.property.count({ where: { ...where, ...hiddenTaken() } }),
     ]);
     const total = byStatus.reduce((n, r) => n + r._count._all, 0);
     const status = (value: string) => byStatus.find((r) => r.status === value)?._count._all ?? 0;
@@ -268,6 +291,9 @@ export class PropertiesService {
       availability: Object.fromEntries(byAvailability.map((r) => [r.availability, r._count._all])),
       highlighted,
       demo,
+      /** Rented / sold long enough ago to be off the site (RENTED_HIDE_DAYS). */
+      delisted,
+      hideDays: RENTED_HIDE_DAYS,
     };
   }
 
@@ -334,6 +360,7 @@ export class PropertiesService {
         where: { id },
         data: {
           ...this.scalars(dto),
+          ...(dto.availability && dto.availability !== existing.availability ? { availabilityChangedAt: new Date() } : {}),
           unitCode,
           slug,
           name: dto.name,

@@ -302,6 +302,43 @@ describe('properties', () => {
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
 
+  it('takes units rented a few days ago off the site and back when free again', async () => {
+    const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
+    const unit = (slug: string) => admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED' }).expect(201).then((r) => r.body.data);
+    const fresh = await unit('song-han-a');
+    const old = await unit('song-han-b');
+    const free = await unit('song-han-c');
+    await admin.patch(`/api/v1/admin/properties/${fresh.id}`, { availability: 'RENTED' }).expect(200);
+    await admin.patch(`/api/v1/admin/properties/${old.id}`, { availability: 'RENTED' }).expect(200);
+    // The status change is stamped; another edit leaves the stamp alone.
+    const stamped = await prisma.property.findUniqueOrThrow({ where: { id: old.id } });
+    await admin.patch(`/api/v1/admin/properties/${old.id}`, { availability: 'RENTED', name: 'Căn song-han-b mới' }).expect(200);
+    expect((await prisma.property.findUniqueOrThrow({ where: { id: old.id } })).availabilityChangedAt).toEqual(stamped.availabilityChangedAt);
+    // Rented 6 days ago: past RENTED_HIDE_DAYS (5).
+    await prisma.property.update({ where: { id: old.id }, data: { availabilityChangedAt: new Date(Date.now() - 6 * 86_400_000) } });
+
+    const site = async () => (await http().get('/api/v1/properties').expect(200)).body.data.map((p: { slug: string }) => p.slug).sort();
+    expect(await site()).toEqual(['song-han-a', 'song-han-c']);
+    expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug).sort()).toEqual(['song-han-a', 'song-han-c']);
+    // Its page still opens (old links), marked so it is not indexed.
+    const page = (await http().get('/api/v1/properties/song-han-b').expect(200)).body.data;
+    expect(page).toMatchObject({ availability: 'RENTED', delisted: true });
+    expect((await http().get('/api/v1/properties/song-han-a').expect(200)).body.data.delisted).toBe(false);
+
+    // Admin: the default list leaves it to "Đã cho thuê"; a search still finds it.
+    const slugs = async (query = '') => (await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body.data.map((p: { slug: string }) => p.slug).sort();
+    expect(await slugs()).toEqual(['song-han-a', 'song-han-c']);
+    expect(await slugs('availability=RENTED')).toEqual(['song-han-a', 'song-han-b']);
+    expect(await slugs('q=song-han-b')).toEqual(['song-han-b']);
+    const stats = (await admin.get('/api/v1/admin/properties/stats').expect(200)).body.data;
+    expect(stats).toMatchObject({ total: 3, availability: { RENTED: 2, AVAILABLE: 1 }, delisted: 1, hideDays: 5 });
+
+    // Free again: back on the site at once.
+    await admin.patch(`/api/v1/admin/properties/${old.id}`, { availability: 'AVAILABLE' }).expect(200);
+    expect(await site()).toEqual(['song-han-a', 'song-han-b', 'song-han-c']);
+    expect(free.availability).toBe('AVAILABLE');
+  });
+
   it('makes the slug from the name and unit code, and the code when it is empty', async () => {
     const project = await prisma.project.create({ data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
     const base = { name: 'Căn 2PN view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.' };

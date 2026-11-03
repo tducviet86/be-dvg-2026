@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/auth.decorators.js';
 import { publishedWhere } from '../../common/utils/content.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { hiddenTaken } from '../properties/properties.service.js';
 
 /** Everything the frontend sitemap needs, in one request. Demo content is excluded. */
 @ApiTags('seo')
@@ -17,7 +18,8 @@ export class SeoController {
     const { deletedAt: _d, ...pageLive } = live;
     const [projects, properties, posts, categories, pages, jobs] = await Promise.all([
       this.prisma.project.findMany({ where: live, select: { slug: true, updatedAt: true, categories: { select: { category: { select: { code: true } } } } }, orderBy: { sortOrder: 'asc' } }),
-      this.prisma.property.findMany({ where: { ...live, isDemo: false, project: live }, select: { slug: true, updatedAt: true } }),
+      // Units rented / sold a while ago are off the site.
+      this.prisma.property.findMany({ where: { ...live, isDemo: false, project: live, NOT: hiddenTaken() }, select: { slug: true, updatedAt: true } }),
       this.prisma.blogPost.findMany({ where: { ...live, isDemo: false }, select: { slug: true, updatedAt: true } }),
       this.prisma.blogCategory.findMany({ where: { posts: { some: { ...live, isDemo: false } } }, select: { slug: true } }),
       // A service that opens another page (linkHref) has no URL of its own.
