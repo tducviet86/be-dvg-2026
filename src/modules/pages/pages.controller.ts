@@ -43,6 +43,8 @@ const RESERVED = new Set(['admin', 'api', 'media', 'cho-thue', 'du-an', 'blog', 
 class SectionDto {
   @Clean() @IsString() @MinLength(1) @MaxLength(200) heading: string;
   @Clean() @IsString() @MinLength(1) @MaxLength(6000) body: string;
+  /** URL of a library image. */
+  @IsOptional() @IsString() @MaxLength(1000) image?: string;
 }
 class PageDto {
   @IsString() @Matches(PATH, { message: 'Đường dẫn chỉ gồm chữ thường không dấu, số, "-" và "/".' }) @MaxLength(200) path: string;
@@ -83,7 +85,7 @@ const toDto = (p: Row) => ({
   eyebrow: p.eyebrow,
   intro: p.intro,
   summary: p.summary,
-  sections: p.sections as { heading: string; body: string }[],
+  sections: p.sections as { heading: string; body: string; image?: string }[],
   coverImage: image(p.coverImage, p.title),
   sortOrder: p.sortOrder,
   inMenu: p.inMenu,
@@ -229,14 +231,19 @@ export class PagesController {
     const [first, ...rest] = dto.path.split('/');
     if (kind === 'SERVICE' && (first !== 'dich-vu' || rest.length !== 1))
       throw badRequest('Đường dẫn lĩnh vực có dạng dich-vu/ten-linh-vuc.', pathError('Đường dẫn lĩnh vực có dạng dich-vu/ten-linh-vuc.'));
-    if (kind === 'PAGE' && (RESERVED.has(first) || (first === 'tuyen-dung' && rest.length)))
+    // du-an/<project>/<item>: the detail page of a product row of a project.
+    const projectItem = first === 'du-an' && rest.length === 2;
+    if (kind === 'PAGE' && !projectItem && (RESERVED.has(first) || (first === 'tuyen-dung' && rest.length)))
       throw badRequest(`Đường dẫn "/${dto.path}" trùng với trang có sẵn của website.`, pathError('trùng với trang có sẵn của website.'));
     const taken = await this.prisma.staticPage.findUnique({ where: { path: dto.path }, select: { id: true } });
     if (taken && taken.id !== id) throw conflict('Đường dẫn đã được dùng cho trang khác.', pathError('đã được dùng cho trang khác.'));
     if (dto.coverImageId && !(await this.prisma.mediaAsset.findFirst({ where: { id: dto.coverImageId, mimeType: { startsWith: 'image/' } } })))
       throw badRequest('Ảnh bìa không còn trong thư viện.');
+    const images = [...new Set(dto.sections.flatMap((s) => s.image ?? []))];
+    if ((await this.prisma.mediaAsset.count({ where: { url: { in: images }, mimeType: { startsWith: 'image/' } } })) < images.length)
+      throw badRequest('Ảnh của mục không còn trong thư viện.');
     const { expectedUpdatedAt: _e, status: _s, ...data } = dto;
-    return { ...data, kind, sections: data.sections.map((s) => ({ heading: s.heading, body: s.body })) };
+    return { ...data, kind, sections: data.sections.map((s) => ({ heading: s.heading, body: s.body, ...(s.image ? { image: s.image } : {}) })) };
   }
 }
 

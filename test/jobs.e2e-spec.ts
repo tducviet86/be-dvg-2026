@@ -125,9 +125,15 @@ describe('pages and services', () => {
   it('edits company pages and keeps built-in URLs free', async () => {
     const created = (await admin.post('/api/v1/admin/pages', page()).expect(201)).body.data;
     expect((await http().get('/api/v1/pages/gioi-thieu/lich-su').expect(200)).body.data.sections).toEqual([{ heading: '2018', body: 'Thành lập công ty.' }]);
+    // A section photo must come from the library.
+    await admin.post('/api/v1/admin/pages', page({ path: 'gioi-thieu/anh-ngoai', sections: [{ heading: 'Ảnh', body: 'Nội dung.', image: 'https://example.com/x.jpg' }] })).expect(400);
     const reserved = await admin.post('/api/v1/admin/pages', page({ path: 'cho-thue/abc' })).expect(400);
     expect(reserved.body.error.details[0].field).toBe('path');
     await admin.post('/api/v1/admin/pages', page({ path: 'tuyen-dung/abc' })).expect(400);
+    // A project's product page is allowed; other /du-an paths stay reserved.
+    await admin.post('/api/v1/admin/pages', page({ path: 'du-an/abc' })).expect(400);
+    const item = await admin.post('/api/v1/admin/pages', page({ path: 'du-an/capital-square/can-ho' })).expect(201);
+    await prisma.staticPage.delete({ where: { id: item.body.data.id } });
     await admin.post('/api/v1/admin/pages', page()).expect(409);
 
     const listed = (await admin.get('/api/v1/admin/pages?kind=PAGE&q=lịch').expect(200)).body;
