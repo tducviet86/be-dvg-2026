@@ -361,6 +361,8 @@ model Property {
   furnishing            Furnishing    @default(FULL)
   rentPriceVnd          BigInt?       @map("rent_price_vnd") // per month
   salePriceVnd          BigInt?       @map("sale_price_vnd")
+  /// Costs the rent already covers: water | electricity | management | internet | motorbike | car.
+  includedFees          String[]      @default([]) @map("included_fees")
   depositVnd            BigInt?       @map("deposit_vnd")
   managementFeeVnd      BigInt?       @map("management_fee_vnd") // per month
   minimumLeaseMonths    Int?          @map("minimum_lease_months")

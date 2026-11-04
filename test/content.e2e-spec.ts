@@ -352,6 +352,16 @@ describe('properties', () => {
     expect(unit.propertyType).toEqual({ code: 'mat-bang', name: 'Mặt bằng', group: 'premises' });
   });
 
+  it('records which costs the rent already covers', async () => {
+    const project = await prisma.project.create({ data: { slug: 'fees', name: 'Dự án phí', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
+    const base = { slug: 'phi-a', unitCode: 'A', name: 'Căn có phí', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', status: 'PUBLISHED' };
+    await admin.post('/api/v1/admin/properties', { ...base, includedFees: ['water', 'wifi'] }).expect(400);
+    const unit = (await admin.post('/api/v1/admin/properties', { ...base, includedFees: ['water', 'internet'] }).expect(201)).body.data;
+    expect((await http().get('/api/v1/properties/phi-a').expect(200)).body.data.includedFees).toEqual(['water', 'internet']);
+    await admin.patch(`/api/v1/admin/properties/${unit.id}`, { includedFees: [] }).expect(200);
+    expect((await http().get('/api/v1/properties/phi-a').expect(200)).body.data.includedFees).toEqual([]);
+  });
+
   it('makes the slug from the name and unit code, and the code when it is empty', async () => {
     const project = await prisma.project.create({ data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
     const base = { name: 'Căn 2PN view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.' };

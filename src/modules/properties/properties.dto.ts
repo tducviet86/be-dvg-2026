@@ -30,6 +30,7 @@ const VIDEO_PATTERN =
 const VND_MESSAGE = 'Số tiền phải là số nguyên VND không âm.';
 /** Badges an editor can put on a unit card. */
 export const HIGHLIGHTS = ['hot', 'exclusive', 'rare', 'good-price'] as const;
+export const INCLUDED_FEES = ['water', 'electricity', 'management', 'internet', 'motorbike', 'car'] as const;
 
 export class CreatePropertyDto {
   /** Left out: made from the name (plus the unit code when already taken). */
@@ -66,6 +67,7 @@ export class CreatePropertyDto {
   @IsOptional() @Clean() @IsString() @MaxLength(300) coverImageAlt?: string | null;
   @IsOptional() @IsArray() @ArrayUnique() @ArrayMaxSize(60) @IsUUID('all', { each: true }) galleryImageIds?: string[];
   @IsOptional() @CleanList() @IsArray() @ArrayMaxSize(60) @IsString({ each: true }) @MaxLength(160, { each: true }) amenities?: string[];
+  @IsOptional() @IsArray() @ArrayUnique() @IsIn(INCLUDED_FEES, { each: true }) includedFees?: string[];
   /** YouTube link, HTTPS MP4/WebM file, or a local file under /images. */
   @IsOptional()
   @Matches(VIDEO_PATTERN, { message: 'Video cần là liên kết YouTube, MP4/WebM HTTPS hoặc /images/ten-video.mp4.' })
