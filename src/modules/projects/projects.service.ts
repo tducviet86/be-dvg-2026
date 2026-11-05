@@ -237,6 +237,8 @@ export class ProjectsService {
       throw badRequest('Cần nhập đủ cả vĩ độ và kinh độ.');
     if (dto.startDate && dto.handoverDate && dto.startDate > dto.handoverDate)
       throw badRequest('Ngày bàn giao không được trước ngày khởi công.');
+    if (dto.paymentSchedule?.length && Math.round(dto.paymentSchedule.reduce((sum, step) => sum + step.percent, 0) * 100) !== 10000)
+      throw badRequest('Tổng các đợt thanh toán phải đúng 100%.');
     return {
       stage: dto.stage,
       propertyKind: dto.propertyKind,
@@ -262,6 +264,19 @@ export class ProjectsService {
       rentalIntro: dto.rentalIntro,
       rentalFocus: dto.rentalFocus,
       rentalChecks: dto.rentalChecks,
+      unitTypes: dto.unitTypes?.map((row) => ({ ...row })),
+      floorPlans: dto.floorPlans?.map((row) => ({ ...row })),
+      paymentSchedule: dto.paymentSchedule?.map((row) => ({ ...row })),
+      paymentNote: dto.paymentNote,
+      towers: dto.towers?.map((row) => ({ ...row })),
+      photos: dto.photos?.map((row) => ({ ...row })),
+      salesPolicies: dto.salesPolicies?.map((row) => ({ ...row })),
+      connections: dto.connections?.map((row) => ({ ...row })),
+      progressPhotos: dto.progressPhotos?.map((row) => ({ ...row })),
+      videoUrl: dto.videoUrl,
+      scale: dto.scale,
+      priceNote: dto.priceNote,
+      handoverNote: dto.handoverNote,
       seoTitle: dto.seoTitle,
       seoDescription: dto.seoDescription,
       sortOrder: dto.sortOrder,
@@ -290,6 +305,9 @@ export class ProjectsService {
       await tx.projectImage.createMany({ data: dto.galleryImageIds.map((mediaId, sortOrder) => ({ projectId, mediaId, sortOrder })) });
     }
     if (dto.coverImageId) await this.banners.assertMedia(tx, dto.coverImageId);
+    const images = [...new Set([...(dto.unitTypes ?? []), ...(dto.floorPlans ?? []), ...(dto.photos ?? []), ...(dto.progressPhotos ?? [])].flatMap((row) => row.image ?? []))];
+    if ((await tx.mediaAsset.count({ where: { url: { in: images }, mimeType: { startsWith: 'image/' } } })) < images.length)
+      throw badRequest('Có ảnh của dự án không còn trong thư viện.');
   }
 
   /** A slug taken by a live project can no longer be a redirect source. */

@@ -52,6 +52,10 @@ export class CreatePropertyDto {
   @Type(() => Number) @IsInt() @Min(0) @Max(50) bathrooms: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(-10) @Max(200) floor?: number | null;
   @IsOptional() @Clean() @IsString() @MaxLength(40) direction?: string | null;
+  @IsOptional() @Clean() @IsString() @MaxLength(40) tower?: string | null;
+  @IsOptional() @Clean() @IsString() @MaxLength(120) viewNote?: string | null;
+  @IsOptional() @Clean() @IsString() @MaxLength(60) quota?: string | null;
+  @IsOptional() @IsBoolean() priceExcludesFees?: boolean;
   @IsOptional() @IsEnum(Furnishing) furnishing?: Furnishing;
   @IsOptional() @Matches(VND, { message: VND_MESSAGE }) rentPriceVnd?: string | null;
   @IsOptional() @Matches(VND, { message: VND_MESSAGE }) salePriceVnd?: string | null;

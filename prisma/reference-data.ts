@@ -51,6 +51,7 @@ export async function seedReference(prisma: PrismaClient) {
     ['studio', 'Studio', 'apartment'],
     ['1pn', '1 phòng ngủ', 'apartment'],
     ['2pn', '2 phòng ngủ', 'apartment'],
+    ['2pn-plus', '2 phòng ngủ +1', 'apartment'],
     ['3pn', '3 phòng ngủ', 'apartment'],
     ['shophouse', 'Shophouse', 'apartment'],
     ['serviced', 'Căn hộ dịch vụ', 'apartment'],

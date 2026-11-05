@@ -229,6 +229,28 @@ model Project {
   rentalIntro    String?       @map("rental_intro")
   rentalFocus    String?       @map("rental_focus")
   rentalChecks   String[]      @default([]) @map("rental_checks")
+  /// [{ name, area?, price?, note?, image? }]
+  unitTypes       Json         @default("[]") @map("unit_types")
+  /// [{ name, tower?, image }]
+  floorPlans      Json         @default("[]") @map("floor_plans")
+  /// [{ label, percent, timing? }]; the percents add up to 100.
+  paymentSchedule Json         @default("[]") @map("payment_schedule")
+  paymentNote     String?      @map("payment_note")
+  /// [{ name, status?, note? }]
+  towers          Json         @default("[]")
+  /// [{ group, image }]: Phối cảnh, Căn hộ mẫu, Tiện ích.
+  photos          Json         @default("[]")
+  /// [{ title, body?, condition? }]
+  salesPolicies   Json         @default("[]") @map("sales_policies")
+  /// [{ place, time? }]
+  connections     Json         @default("[]")
+  /// [{ title, date?, image }]
+  progressPhotos  Json         @default("[]") @map("progress_photos")
+  videoUrl        String?      @map("video_url")
+  scale           String?
+  priceNote       String?      @map("price_note")
+  /// Shown instead of handoverDate when set ("Quý IV/2027").
+  handoverNote    String?      @map("handover_note")
   seoTitle       String?       @map("seo_title")
   seoDescription String?       @map("seo_description")
   sortOrder      Int           @default(0) @map("sort_order")
@@ -332,6 +354,7 @@ enum Furnishing {
   FULL
   BASIC
   NONE
+  ROUGH
 }
 
 model Property {
@@ -358,6 +381,13 @@ model Property {
   bathrooms             Int           @default(1)
   floor                 Int?
   direction             String?
+  /// Tower of a project with several ("C4").
+  tower                 String?
+  viewNote              String?       @map("view_note")
+  /// Sales quota the unit belongs to ("Quỹ nước ngoài").
+  quota                 String?
+  /// The sale price leaves out VAT and the maintenance fund.
+  priceExcludesFees     Boolean       @default(false) @map("price_excludes_fees")
   furnishing            Furnishing    @default(FULL)
   rentPriceVnd          BigInt?       @map("rent_price_vnd") // per month
   salePriceVnd          BigInt?       @map("sale_price_vnd")

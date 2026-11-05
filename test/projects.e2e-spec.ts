@@ -49,6 +49,25 @@ describe('projects & homepage banner', () => {
     expect((await http().get('/api/v1/projects?category=rent').expect(200)).body.meta.total).toBe(0);
   });
 
+  it('keeps the sales information; payment steps must reach 100% and photos come from the library', async () => {
+    const id = (await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED' })).expect(201)).body.data.id;
+    const paymentSchedule = [
+      { label: 'Đợt 1', percent: 30.5, timing: 'Khi ký hợp đồng' },
+      { label: 'Đợt 2', percent: 69.5 },
+    ];
+    const unitTypes = [{ name: 'Căn 2 phòng ngủ', area: 'Khoảng 70 m²', price: 'Từ 3 tỷ', image: '/images/projects/capital.jpg' }];
+    await admin.patch(`/api/v1/admin/projects/${id}`, { paymentSchedule: [{ label: 'Đợt 1', percent: 30 }] }).expect(400);
+    await admin.patch(`/api/v1/admin/projects/${id}`, { photos: [{ group: 'Nhóm lạ', image: '/images/projects/capital.jpg' }] }).expect(400);
+    await admin.patch(`/api/v1/admin/projects/${id}`, { photos: [{ group: 'Căn 3 phòng ngủ', image: '/images/projects/capital.jpg' }] }).expect(200);
+    await admin.patch(`/api/v1/admin/projects/${id}`, { floorPlans: [{ name: 'Tầng 1', image: 'https://example.com/x.jpg' }] }).expect(400);
+    await admin.patch(`/api/v1/admin/projects/${id}`, { unitTypes, paymentSchedule, paymentNote: 'Áp dụng đến hết tháng.', handoverNote: 'Quý IV/2027' }).expect(200);
+    const detail = (await http().get('/api/v1/projects/capital-square').expect(200)).body.data;
+    expect(detail).toMatchObject({ unitTypes, paymentSchedule, paymentNote: 'Áp dụng đến hết tháng.', handoverNote: 'Quý IV/2027', floorPlans: [] });
+    // An edit of something else leaves them alone.
+    await admin.patch(`/api/v1/admin/projects/${id}`, { intro: 'Giới thiệu mới của dự án bên sông Hàn.' }).expect(200);
+    expect((await http().get('/api/v1/projects/capital-square').expect(200)).body.data.unitTypes).toEqual(unitTypes);
+  });
+
   it('the admin list counts statuses, sorts and says who created each project', async () => {
     await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED' })).expect(201);
     await admin.post('/api/v1/admin/projects', base({ slug: 'an-binh', name: 'An Bình' })).expect(201);
