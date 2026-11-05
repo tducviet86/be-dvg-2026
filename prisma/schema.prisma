@@ -386,6 +386,8 @@ model Property {
   viewNote              String?       @map("view_note")
   /// Sales quota the unit belongs to ("Quỹ nước ngoài").
   quota                 String?
+  /// Floors a model unit applies to ("Tầng 5-10").
+  floorNote             String?       @map("floor_note")
   /// The sale price leaves out VAT and the maintenance fund.
   priceExcludesFees     Boolean       @default(false) @map("price_excludes_fees")
   furnishing            Furnishing    @default(FULL)
