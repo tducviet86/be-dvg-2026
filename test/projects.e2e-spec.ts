@@ -68,6 +68,13 @@ describe('projects & homepage banner', () => {
     expect((await http().get('/api/v1/projects/capital-square').expect(200)).body.data.unitTypes).toEqual(unitTypes);
   });
 
+  it('keeps a tower\'s own handover date', async () => {
+    const towers = [{ name: 'C3', status: 'Đang nhận booking', handover: 'Quý IV/2028' }, { name: 'C4' }];
+    const created = await admin.post('/api/v1/admin/projects', base({ towers, handoverNote: 'Quý IV/2027' })).expect(201);
+    expect(created.body.data.towers[0].handover).toBe('Quý IV/2028');
+    expect(created.body.data.handoverNote).toBe('Quý IV/2027');
+  });
+
   it('the admin list counts statuses, sorts and says who created each project', async () => {
     await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED' })).expect(201);
     await admin.post('/api/v1/admin/projects', base({ slug: 'an-binh', name: 'An Bình' })).expect(201);

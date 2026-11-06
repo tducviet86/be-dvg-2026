@@ -57,6 +57,8 @@ export class PaymentStepDto {
 export class TowerDto {
   @Clean() @IsString() @MinLength(1) @MaxLength(40) name: string;
   @IsOptional() @Clean() @IsString() @MaxLength(60) status?: string;
+  /** Only when it differs from the project's handover date. */
+  @IsOptional() @Clean() @IsString() @MaxLength(80) handover?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(200) note?: string;
 }
 export class ProjectPhotoDto {
