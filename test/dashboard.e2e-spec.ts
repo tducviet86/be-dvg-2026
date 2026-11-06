@@ -54,11 +54,14 @@ describe('admin dashboard', () => {
     expect(d.topUnits[0]).toMatchObject({ id: hot.id, views: 15, leads: 1, cover: cover.url });
     expect(d.coldUnits.map((u: { name: string }) => u.name)).toEqual(['Căn can-nguoi-xem']);
     expect(d.health).toMatchObject({ units: 3, noCover: 2, noSeo: 3, shortText: 3 });
-    // Model apartments are samples: nothing to fill in, so health ignores them.
+    // Model apartments are samples: nothing to fill in or sell through, so
+    // health, inventory and the unviewed list ignore them.
     const noPrice = d.health.noPrice;
     const model = await unit('can-mau-c1', { floorNote: 'Tầng 5-10', forRent: false, forSale: true });
     const after = (await admin.get('/api/v1/admin/dashboard?days=30').expect(200)).body.data;
     expect(after.health).toMatchObject({ units: 3, noCover: 2, noSeo: 3, shortText: 3, noPrice });
+    expect(after.inventory.total).toBe(3);
+    expect(after.coldUnits.map((u: { name: string }) => u.name)).toEqual(['Căn can-nguoi-xem']);
     await prisma.property.delete({ where: { id: model.id } });
     expect(d.leads.byStatus).toEqual({ NEW: 1 });
     expect(d.leads.bySource).toEqual([{ source: expect.any(String), count: 1 }]);

@@ -118,6 +118,7 @@ export class DashboardService {
         avg(u.rent_price_vnd) FILTER (WHERE u.for_rent) AS avg_rent
       FROM projects p JOIN properties u ON u.project_id = p.id
       WHERE p.deleted_at IS NULL AND u.deleted_at IS NULL AND u.status <> 'ARCHIVED' AND NOT u.is_demo
+        AND coalesce(u.floor_note, '') = ''
       GROUP BY p.id, p.name, p.slug, u.availability`;
     const byProject = new Map<
       string,
@@ -148,9 +149,9 @@ export class DashboardService {
   /** Most viewed units in the period, and available units nobody viewed. */
   private async topUnits(from: Date, withLeads: boolean) {
     const rows = await this.prisma.$queryRaw<
-      { id: string; name: string; unit_code: string | null; availability: string; status: string; project: string; cover: string | null; views: bigint; leads: bigint }[]
+      { id: string; name: string; unit_code: string | null; floor_note: string | null; availability: string; status: string; project: string; cover: string | null; views: bigint; leads: bigint }[]
     >`
-      SELECT u.id, u.name, u.unit_code, u.availability, u.status, p.name AS project, m.url AS cover,
+      SELECT u.id, u.name, u.unit_code, u.floor_note, u.availability, u.status, p.name AS project, m.url AS cover,
         coalesce((SELECT sum(v.views) FROM property_view_days v WHERE v.property_id = u.id AND v.day >= ${from}), 0) AS views,
         (SELECT count(*) FROM leads l WHERE l.property_id = u.id AND l.deleted_at IS NULL AND l.created_at >= ${from}) AS leads
       FROM properties u JOIN projects p ON p.id = u.project_id LEFT JOIN media_assets m ON m.id = u.cover_image_id
@@ -167,10 +168,13 @@ export class DashboardService {
       leads: withLeads ? n(r.leads) : 0,
     }));
     const score = (u: (typeof units)[number]) => u.views + u.leads * 5;
+    // Model apartments (with a floor note) are samples, not stock waiting for a viewer.
+    const models = new Set(rows.filter((r) => r.floor_note).map((r) => r.id));
+    const cold = units.filter((u) => !models.has(u.id) && u.published && u.availability === 'AVAILABLE' && !u.views && !u.leads);
     return {
       hot: units.filter((u) => score(u) > 0).sort((a, b) => score(b) - score(a)).slice(0, 6),
-      cold: units.filter((u) => u.published && u.availability === 'AVAILABLE' && !u.views && !u.leads).slice(0, 6),
-      coldCount: units.filter((u) => u.published && u.availability === 'AVAILABLE' && !u.views && !u.leads).length,
+      cold: cold.slice(0, 6),
+      coldCount: cold.length,
     };
   }
 
