@@ -150,6 +150,10 @@ const adminOrderBy = (sort?: string): Prisma.PropertyOrderByWithRelationInput[] 
 const date = (value: string | null | undefined) =>
   value === undefined ? undefined : value === null ? null : new Date(`${value.slice(0, 10)}T00:00:00Z`);
 
+/** A project's model apartments are the units with a floor note. */
+const kindWhere = (kind?: AdminPropertyQuery['kind']): Prisma.PropertyWhereInput =>
+  kind === 'model' ? { floorNote: { gt: '' } } : kind === 'unit' ? { OR: [{ floorNote: null }, { floorNote: '' }] } : {};
+
 @Injectable()
 export class PropertiesService {
   constructor(
@@ -264,6 +268,7 @@ export class PropertiesService {
       status: q.status,
       ...this.filters(q),
       ...(q.highlight === 'none' ? { highlight: null } : q.highlight ? { highlight: q.highlight } : {}),
+      ...kindWhere(q.kind),
       // Without a status filter or a search, units off the site wait under
       // "Đã cho thuê" / "Đã bán" instead of filling the list.
       ...(!q.availability && !q.q ? { NOT: hiddenTaken() } : {}),
@@ -278,14 +283,17 @@ export class PropertiesService {
   }
 
   /** Counts for the admin list's summary cards (archived units left out). */
-  async adminStats() {
-    const where = { deletedAt: null, status: { not: 'ARCHIVED' as const } };
-    const [byStatus, byAvailability, highlighted, demo, delisted] = await Promise.all([
+  async adminStats(kind?: AdminPropertyQuery['kind']) {
+    const all = { deletedAt: null, status: { not: 'ARCHIVED' as const } };
+    const where = { ...all, ...kindWhere(kind) };
+    const [byStatus, byAvailability, highlighted, demo, delisted, models, allUnits] = await Promise.all([
       this.prisma.property.groupBy({ by: ['status'], where, _count: { _all: true } }),
       this.prisma.property.groupBy({ by: ['availability'], where, _count: { _all: true } }),
       this.prisma.property.count({ where: { ...where, highlight: { not: null } } }),
       this.prisma.property.count({ where: { ...where, isDemo: true } }),
       this.prisma.property.count({ where: { ...where, ...hiddenTaken() } }),
+      this.prisma.property.count({ where: { ...all, ...kindWhere('model') } }),
+      this.prisma.property.count({ where: all }),
     ]);
     const total = byStatus.reduce((n, r) => n + r._count._all, 0);
     const status = (value: string) => byStatus.find((r) => r.status === value)?._count._all ?? 0;
@@ -300,6 +308,8 @@ export class PropertiesService {
       /** Rented / sold long enough ago to be off the site (RENTED_HIDE_DAYS). */
       delisted,
       hideDays: RENTED_HIDE_DAYS,
+      /** The two tabs of the admin list, whichever one is open. */
+      kinds: { unit: allUnits - models, model: models },
     };
   }
 

@@ -176,13 +176,19 @@ export class DashboardService {
 
   /** Content that is incomplete or waiting. */
   private async health() {
-    const live = { deletedAt: null, isDemo: false, status: { not: 'ARCHIVED' as const } };
+    // Model apartments (with a floor note) are samples: no price or SEO to fill in.
+    const live = {
+      deletedAt: null,
+      isDemo: false,
+      status: { not: 'ARCHIVED' as const },
+      AND: [{ OR: [{ floorNote: null }, { floorNote: '' }] }],
+    };
     const [units, noCover, noSeo, shortText, unitDrafts, noPrice] = await Promise.all([
       this.prisma.property.count({ where: live }),
       this.prisma.property.count({ where: { ...live, coverImageId: null } }),
       this.prisma.property.count({ where: { ...live, OR: [{ seoTitle: null }, { seoDescription: null }] } }),
       this.prisma.$queryRaw<{ c: bigint }[]>`
-        SELECT count(*) AS c FROM properties WHERE deleted_at IS NULL AND NOT is_demo AND status <> 'ARCHIVED' AND length(description) < 200`,
+        SELECT count(*) AS c FROM properties WHERE deleted_at IS NULL AND NOT is_demo AND status <> 'ARCHIVED' AND coalesce(floor_note, '') = '' AND length(description) < 200`,
       this.prisma.property.count({ where: { ...live, status: 'DRAFT' } }),
       this.prisma.property.count({
         where: { ...live, OR: [{ forRent: true, rentPriceVnd: null }, { forSale: true, salePriceVnd: null }] },

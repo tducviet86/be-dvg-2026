@@ -302,6 +302,21 @@ describe('properties', () => {
     await admin.post('/api/v1/admin/properties', { slug: 'x-1', name: 'Căn X', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', rentPriceVnd: '1.5' }).expect(400);
   });
 
+  it('lists model apartments apart from the units posted for rent or sale', async () => {
+    const project = await prisma.project.create({ data: { slug: 'capital', name: 'Capital', location: 'Đà Nẵng', intro: 'Dự án kiểm tra.', status: 'PUBLISHED' } });
+    const unit = (slug: string, floorNote?: string) =>
+      admin.post('/api/v1/admin/properties', { slug, name: slug, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn kiểm tra danh sách.', floorNote, status: 'PUBLISHED' }).expect(201);
+    await unit('can-thue');
+    await unit('can-mau', 'Tầng 5-10');
+    const names = async (kind: string) =>
+      (await admin.get(`/api/v1/admin/properties?kind=${kind}`).expect(200)).body.data.map((u: { name: string }) => u.name);
+    expect(await names('unit')).toEqual(['can-thue']);
+    expect(await names('model')).toEqual(['can-mau']);
+    const stats = (await admin.get('/api/v1/admin/properties/stats?kind=unit').expect(200)).body.data;
+    expect(stats).toMatchObject({ total: 1, kinds: { unit: 1, model: 1 } });
+    await admin.get('/api/v1/admin/properties?kind=other').expect(400);
+  });
+
   it('takes units rented a few days ago off the site and back when free again', async () => {
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const unit = (slug: string) => admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED' }).expect(201).then((r) => r.body.data);

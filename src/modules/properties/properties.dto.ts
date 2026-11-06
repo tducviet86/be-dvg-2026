@@ -104,4 +104,6 @@ export class AdminPropertyQuery extends PublicPropertyQuery {
   @IsOptional() @IsEnum(PublishStatus) status?: PublishStatus;
   /** An editor badge, or 'none' for units without one. */
   @IsOptional() @IsIn([...HIGHLIGHTS, 'none']) highlight?: (typeof HIGHLIGHTS)[number] | 'none';
+  /** 'model': a project's model apartments (they have a floor note); 'unit': the rest. */
+  @IsOptional() @IsIn(['unit', 'model']) kind?: 'unit' | 'model';
 }
