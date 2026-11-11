@@ -25,6 +25,7 @@ import { ProjectsModule } from './modules/projects/projects.module.js';
 import { PropertiesModule } from './modules/properties/properties.module.js';
 import { RevalidationModule } from './modules/revalidation/revalidation.service.js';
 import { SeoModule } from './modules/seo/seo.controller.js';
+import { SearchConsoleModule } from './modules/seo/search-console.js';
 import { SettingsModule } from './modules/settings/settings.controller.js';
 import { UsersModule } from './modules/users/users.module.js';
 
@@ -72,6 +73,7 @@ import { UsersModule } from './modules/users/users.module.js';
     SettingsModule,
     LeadsModule,
     SeoModule,
+    SearchConsoleModule,
     HealthModule,
     AiModule,
   ],

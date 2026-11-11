@@ -18,6 +18,7 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'AI_DISABLED'
   | 'AI_UNAVAILABLE'
+  | 'SEARCH_CONSOLE_UNAVAILABLE'
   | 'INTERNAL';
 
 export class AppError extends HttpException {

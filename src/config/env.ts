@@ -75,6 +75,17 @@ export const envSchema = z
     GEMINI_API_BASE: z.string().url().default('https://generativelanguage.googleapis.com'),
     /** Model for website translation (EN/KO/ZH): fast and cheap. */
     GEMINI_TRANSLATE_MODEL: z.string().regex(/^[\w.-]+$/).default('gemini-3.5-flash-lite'),
+    /**
+     * Google Search Console, read-only (Admin › Từ khoá & SEO): the property
+     * ("sc-domain:datvanggroup.vn" or "https://datvanggroup.vn/") and a
+     * service account added to it as a user. Empty = the keyword table is off.
+     */
+    GSC_SITE: z.string().optional().default(''),
+    GSC_CLIENT_EMAIL: z.string().optional().default(''),
+    /** The account's private key; "\n" in a one-line .env value is read as a line break. */
+    GSC_PRIVATE_KEY: z.string().optional().default(''),
+    GSC_API_BASE: z.string().url().default('https://searchconsole.googleapis.com'),
+    GSC_TOKEN_URL: z.string().url().default('https://oauth2.googleapis.com/token'),
     /** Characters of NEW (uncached) text sent to Gemini per day; 0 = translation off. */
     /** Outgoing mail (new customer requests). Empty SMTP_HOST = mail off. */
     SMTP_HOST: z.string().optional().default(''),
