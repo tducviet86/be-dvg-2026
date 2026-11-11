@@ -169,5 +169,8 @@ describe('keywords from Search Console', () => {
     const stored = JSON.parse((await prisma.siteSetting.findUniqueOrThrow({ where: { key: 'seo.landings' } })).value as string);
     expect(stored[0]).toMatchObject({ slug: 'can-ho-2pn', seoTitle: onLanding.suggestion.seoTitle, h1: landing.h1 });
     await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'x y', page: 'https://dvg.test/blog' }).expect(400);
+    // The keyword table learns which pages were rewritten, and when.
+    const after = (await admin.get('/api/v1/admin/seo/keywords?days=90').expect(200)).body.data;
+    expect(Object.keys(after.rewritten).sort()).toEqual(['can-ho-2pn', 'monarchy']);
   });
 });

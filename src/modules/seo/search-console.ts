@@ -151,8 +151,33 @@ export class SearchConsoleController {
   @RequirePermissions(PERMISSIONS.settingsWrite)
   async keywords(@Query() q: KeywordsQuery) {
     if (!this.gsc.enabled) return { data: { configured: false, site: null, rows: [] } };
-    const result = await this.gsc.keywords(q.days);
-    return { data: { configured: true, site: this.gsc.site, days: q.days, ...result } };
+    const [result, rewritten] = await Promise.all([this.gsc.keywords(q.days), this.rewritten()]);
+    return { data: { configured: true, site: this.gsc.site, days: q.days, ...result, rewritten } };
+  }
+
+  /**
+   * Pages whose title and description were rewritten here in the last 180
+   * days, by slug (the last part of the page's address) → latest date, so
+   * the table can say "Đã viết lại" instead of offering it again.
+   */
+  private async rewritten(): Promise<Record<string, string>> {
+    const logs = await this.prisma.auditLog.findMany({
+      where: { action: 'seo.keyword_apply', createdAt: { gte: new Date(Date.now() - 180 * 86_400_000) } },
+      orderBy: { createdAt: 'asc' },
+      select: { entityType: true, entityId: true, changes: true, createdAt: true },
+    });
+    const ids = (type: string) => logs.filter((l) => l.entityType === type && l.entityId).map((l) => l.entityId!);
+    const [projects, properties] = await Promise.all([
+      this.prisma.project.findMany({ where: { id: { in: ids('project') } }, select: { id: true, slug: true } }),
+      this.prisma.property.findMany({ where: { id: { in: ids('property') } }, select: { id: true, slug: true } }),
+    ]);
+    const slugs = new Map([...projects, ...properties].map((x) => [x.id, x.slug]));
+    const out: Record<string, string> = {};
+    for (const l of logs) {
+      const slug = l.entityId ? slugs.get(l.entityId) : (l.changes as { slug?: string } | null)?.slug;
+      if (slug) out[slug] = l.createdAt.toISOString();
+    }
+    return out;
   }
 
   /** The page a URL shows, with what an AI proposal needs and can change. */
@@ -231,7 +256,7 @@ export class SearchConsoleController {
       if (!found.count) throw notFound();
       await this.revalidation.trigger('projects', 'properties');
     }
-    await this.audit.log({ actorId: user.id, action: 'seo.keyword_apply', entityType: dto.kind, entityId: dto.id, changes: seo });
+    await this.audit.log({ actorId: user.id, action: 'seo.keyword_apply', entityType: dto.kind, entityId: dto.id, changes: dto.kind === 'landing' ? { ...seo, slug: dto.slug, purpose: dto.purpose } : seo });
     return { data: { ok: true } };
   }
 }
