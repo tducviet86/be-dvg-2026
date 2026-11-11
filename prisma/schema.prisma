@@ -423,6 +423,7 @@ model Property {
   amenities    PropertyAmenity[]
   leads        Lead[]
   views        PropertyViewDay[]
+  viewSources  PropertyViewSource[]
 
   @@index([status, deletedAt, projectId])
   @@index([projectId])
@@ -792,4 +793,18 @@ model PropertyViewDay {
   @@id([propertyId, day])
   @@index([day])
   @@map("property_view_days")
+}
+
+/// Unit page views per day and per source (google, ai, zalo…), counted since
+/// sources were recorded; property_view_days keeps the overall count.
+model PropertyViewSource {
+  propertyId String   @map("property_id") @db.Uuid
+  day        DateTime @db.Date
+  source     String   @db.VarChar(16)
+  views      Int      @default(0)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, day, source])
+  @@index([day])
+  @@map("property_view_sources")
 }

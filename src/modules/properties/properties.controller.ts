@@ -35,8 +35,12 @@ export class PropertiesController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('properties/:slug/view')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async view(@Param('slug') slug: string, @Headers('user-agent') userAgent?: string) {
-    await this.properties.recordView(slug.slice(0, 200), userAgent);
+  async view(
+    @Param('slug') slug: string,
+    @Headers('user-agent') userAgent?: string,
+    @Query('source') source?: string,
+  ) {
+    await this.properties.recordView(slug.slice(0, 200), userAgent, String(source ?? '').slice(0, 16));
   }
 
   @Get('admin/properties')

@@ -40,7 +40,7 @@ export class DashboardService {
     const tomorrow = new Date(today.getTime() + DAY);
     const leadsAllowed = can(PERMISSIONS.leadsRead);
 
-    const [views, leads, inventory, top, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock] =
+    const [views, leads, inventory, top, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock, sources] =
       await Promise.all([
         this.prisma.$queryRaw<{ day: Date; views: bigint }[]>`
           SELECT day, sum(views) AS views FROM property_view_days
@@ -60,6 +60,9 @@ export class DashboardService {
         can(PERMISSIONS.auditRead) ? this.activity() : Promise.resolve(null),
         leadsAllowed ? this.applications() : Promise.resolve(null),
         leadsAllowed ? this.leads(from) : Promise.resolve(null),
+        this.prisma.$queryRaw<{ property_id: string; source: string; views: bigint }[]>`
+          SELECT property_id, source, sum(views) AS views FROM property_view_sources
+          WHERE day >= ${from} AND day < ${tomorrow} GROUP BY property_id, source`,
       ]);
 
     // One row per day of the period, the previous period summed for deltas.
@@ -76,6 +79,18 @@ export class DashboardService {
     const prevViews = sumRange(viewsBy, prevFrom, from);
     const prevLeads = sumRange(leadsBy, prevFrom, from);
     const todayIso = today.getTime();
+    // Views by source; those counted before sources were recorded are "unknown".
+    const bySourceMap = new Map<string, number>();
+    const unitSources = new Map<string, { source: string; views: number }[]>();
+    for (const r of sources) {
+      bySourceMap.set(r.source, (bySourceMap.get(r.source) ?? 0) + n(r.views));
+      unitSources.set(r.property_id, [...(unitSources.get(r.property_id) ?? []), { source: r.source, views: n(r.views) }]);
+    }
+    const known = [...bySourceMap.values()].reduce((s, v) => s + v, 0);
+    if (totalViews > known) bySourceMap.set('unknown', totalViews - known);
+    const bySource = [...bySourceMap]
+      .map(([source, views]) => ({ source, views }))
+      .sort((a, b) => b.views - a.views);
 
     return {
       range: { days, from: series[0].day, to: series.at(-1)!.day },
@@ -86,9 +101,13 @@ export class DashboardService {
         leads: leadsAllowed ? totalLeads : null,
         prevLeads: leadsAllowed ? prevLeads : null,
         conversion: leadsAllowed && totalViews ? totalLeads / totalViews : null,
+        bySource,
       },
       inventory,
-      topUnits: top.hot,
+      topUnits: top.hot.map((u) => ({
+        ...u,
+        sources: (unitSources.get(u.id) ?? []).sort((a, b) => b.views - a.views),
+      })),
       coldUnits: top.cold,
       coldCount: top.coldCount,
       health: { ...health, unusedMedia: mediaStats.unused, unusedMediaBytes: mediaStats.unusedBytes },

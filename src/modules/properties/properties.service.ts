@@ -154,6 +154,9 @@ const date = (value: string | null | undefined) =>
 const kindWhere = (kind?: AdminPropertyQuery['kind']): Prisma.PropertyWhereInput =>
   kind === 'model' ? { floorNote: { gt: '' } } : kind === 'unit' ? { OR: [{ floorNote: null }, { floorNote: '' }] } : {};
 
+/** Where a unit page view came from, as the page reports it. */
+export const VIEW_SOURCES = ['google', 'search', 'ai', 'zalo', 'facebook', 'direct', 'other'] as const;
+
 @Injectable()
 export class PropertiesService {
   constructor(
@@ -242,8 +245,11 @@ export class PropertiesService {
     return result;
   }
 
-  /** Counts one page view of a live unit (sample units and crawlers excluded). */
-  async recordView(slug: string, userAgent = '') {
+  /**
+   * Counts one page view of a live unit (sample units and crawlers excluded),
+   * and where the visitor came from (VIEW_SOURCES; anything else is "other").
+   */
+  async recordView(slug: string, userAgent = '', source = '') {
     if (!userAgent || BOT.test(userAgent)) return;
     const row = await this.prisma.property.findFirst({
       where: { slug, isDemo: false, ...publishedWhere(), project: publishedWhere() },
@@ -251,11 +257,19 @@ export class PropertiesService {
     });
     if (!row) return;
     const day = new Date(new Date().toISOString().slice(0, 10));
-    await this.prisma.propertyViewDay.upsert({
-      where: { propertyId_day: { propertyId: row.id, day } },
-      create: { propertyId: row.id, day, views: 1 },
-      update: { views: { increment: 1 } },
-    });
+    const from = (VIEW_SOURCES as readonly string[]).includes(source) ? source : 'other';
+    await this.prisma.$transaction([
+      this.prisma.propertyViewDay.upsert({
+        where: { propertyId_day: { propertyId: row.id, day } },
+        create: { propertyId: row.id, day, views: 1 },
+        update: { views: { increment: 1 } },
+      }),
+      this.prisma.propertyViewSource.upsert({
+        where: { propertyId_day_source: { propertyId: row.id, day, source: from } },
+        create: { propertyId: row.id, day, source: from, views: 1 },
+        update: { views: { increment: 1 } },
+      }),
+    ]);
   }
 
   types() {

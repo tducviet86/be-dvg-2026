@@ -52,6 +52,25 @@ describe('admin dashboard', () => {
     expect(d.inventory.occupancy).toBeCloseTo(1 / 3);
     expect(d.inventory.projects[0]).toMatchObject({ name: 'The Monarchy', total: 3, views: 15, avgRent: 20_000_000 });
     expect(d.topUnits[0]).toMatchObject({ id: hot.id, views: 15, leads: 1, cover: cover.url });
+    // Views by source in the period; those from before sources were kept are "unknown".
+    expect(d.traffic.bySource).toEqual([{ source: 'unknown', views: 15 }]);
+    await prisma.propertyViewSource.createMany({
+      data: [
+        { propertyId: hot.id, day: day(0), source: 'ai', views: 7 },
+        { propertyId: hot.id, day: day(0), source: 'zalo', views: 3 },
+        { propertyId: hot.id, day: day(40), source: 'google', views: 5 },
+      ],
+    });
+    const withSources = (await admin.get('/api/v1/admin/dashboard?days=30').expect(200)).body.data;
+    expect(withSources.traffic.bySource).toEqual([
+      { source: 'ai', views: 7 },
+      { source: 'unknown', views: 5 },
+      { source: 'zalo', views: 3 },
+    ]);
+    expect(withSources.topUnits[0].sources).toEqual([
+      { source: 'ai', views: 7 },
+      { source: 'zalo', views: 3 },
+    ]);
     expect(d.coldUnits.map((u: { name: string }) => u.name)).toEqual(['Căn can-nguoi-xem']);
     expect(d.health).toMatchObject({ units: 3, noCover: 2, noSeo: 3, shortText: 3 });
     // Model apartments are samples: nothing to fill in or sell through, so

@@ -447,6 +447,14 @@ describe('properties', () => {
     const adminUnit = (await admin.get(`/api/v1/admin/properties/${body.data.id}`).expect(200)).body.data;
     expect(adminUnit.interest).toEqual({ days: 14, views: 10, leads: 4 });
     expect(await prisma.propertyViewDay.count()).toBe(1);
+    // Each view also keeps where it came from; an unknown source is "other".
+    await http().post('/api/v1/properties/pn-hot/view?source=ai').set('user-agent', browser).expect(204);
+    await http().post('/api/v1/properties/pn-hot/view?source=evil%27--').set('user-agent', browser).expect(204);
+    const sources = await prisma.propertyViewSource.findMany({ select: { source: true, views: true }, orderBy: { source: 'asc' } });
+    expect(sources).toEqual([
+      { source: 'ai', views: 1 },
+      { source: 'other', views: 11 },
+    ]);
     // The badge can be removed again.
     await admin.patch(`/api/v1/admin/properties/${body.data.id}`, { highlight: null }).expect(200);
     expect((await http().get('/api/v1/properties/pn-hot').expect(200)).body.data.highlight).toBeNull();
