@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service.js';
+import { vnDay } from '../src/common/vn-day.js';
 import { createApp, createUser, externalMedia, login, resetDb } from './helpers.js';
 
 let app: NestExpressApplication;
@@ -13,7 +14,8 @@ beforeAll(async () => {
 beforeEach(() => resetDb(prisma));
 afterAll(() => app.close());
 
-const day = (offset: number) => new Date(new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10));
+// Views are counted by Vietnamese day.
+const day = (offset: number) => new Date(vnDay().getTime() - offset * 86_400_000);
 
 describe('admin dashboard', () => {
   it('sums traffic, leads, inventory and unfinished content for the chosen period', async () => {
@@ -100,5 +102,49 @@ describe('admin dashboard', () => {
     expect(limited.leads).toBeNull();
     expect(limited.topUnits[0].leads).toBe(0);
     await http().get('/api/v1/admin/dashboard').expect(401);
+  });
+
+  it('counts by the Vietnamese day: 01:30 there is still the day before in UTC', () => {
+    expect(vnDay(new Date('2026-11-12T18:30:00Z')).toISOString().slice(0, 10)).toBe('2026-11-13');
+    expect(vnDay(new Date('2026-11-12T16:59:00Z')).toISOString().slice(0, 10)).toBe('2026-11-12');
+  });
+
+  it('lists every viewed unit, deleted, hidden and model ones too, adding up to the total', async () => {
+    await createUser(prisma, 'admin@dvg.test', 'admin');
+    const admin = await login(app, 'admin@dvg.test');
+    const project = await prisma.project.create({ data: { slug: 'capital', name: 'Capital Square', location: 'Đà Nẵng', intro: 'Dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
+    const type = await prisma.propertyType.findUniqueOrThrow({ where: { code: '2pn' } });
+    const unit = (slug: string, extra = {}) =>
+      prisma.property.create({
+        data: { slug, name: `Căn ${slug}`, unitCode: slug.toUpperCase(), projectId: project.id, propertyTypeId: type.id, location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Ngắn.', searchText: slug, status: 'PUBLISHED', publishedAt: new Date(), ...extra },
+      });
+    const live = await unit('c4-01');
+    const model = await unit('c4-05', { floorNote: 'Tầng 5-10' });
+    const hidden = await unit('c4-07', { status: 'ARCHIVED' });
+    const gone = await unit('c4-09', { deletedAt: new Date() });
+    await prisma.propertyViewDay.createMany({
+      data: [
+        { propertyId: live.id, day: day(0), views: 6 },
+        { propertyId: model.id, day: day(1), views: 9 },
+        { propertyId: hidden.id, day: day(2), views: 3 },
+        { propertyId: gone.id, day: day(3), views: 2 },
+      ],
+    });
+    const d = (await admin.get('/api/v1/admin/dashboard?days=7').expect(200)).body.data;
+    expect(d.traffic.views).toBe(20);
+    expect(d.traffic.byKind).toEqual({ live: 6, model: 9, hidden: 3, deleted: 2 });
+    expect(d.unitViews.map((u: { unitCode: string; kind: string; views: number; project: string }) => [u.unitCode, u.kind, u.views, u.project])).toEqual([
+      ['C4-05', 'model', 9, 'Capital Square'],
+      ['C4-01', 'live', 6, 'Capital Square'],
+      ['C4-07', 'hidden', 3, 'Capital Square'],
+      ['C4-09', 'deleted', 2, 'Capital Square'],
+    ]);
+    expect(d.unitViews.reduce((s: number, u: { views: number }) => s + u.views, 0)).toBe(d.traffic.views);
+    // The unit list counts the same period as the dashboard when asked.
+    const list = (await admin.get('/api/v1/admin/properties?interestDays=7&q=C4-01').expect(200)).body.data;
+    expect(list[0].interest).toEqual({ days: 7, views: 6, leads: 0 });
+    const twoDays = (await admin.get('/api/v1/admin/properties?interestDays=30&kind=model').expect(200)).body.data;
+    expect(twoDays[0].interest).toMatchObject({ days: 30, views: 9 });
+    await admin.get('/api/v1/admin/properties?interestDays=12').expect(400);
   });
 });

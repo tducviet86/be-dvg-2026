@@ -1,5 +1,6 @@
 import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Prisma } from '../../generated/prisma/client.js';
 import { Type } from 'class-transformer';
 import { IsIn, IsOptional } from 'class-validator';
 import { CurrentUser, RequirePermissions } from '../../common/decorators/auth.decorators.js';
@@ -8,13 +9,14 @@ import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { MediaModule } from '../media/media.module.js';
 import { MediaService } from '../media/media.service.js';
+import { DAY_MS as DAY, vnDay, vnDayStart } from '../../common/vn-day.js';
 
 class DashboardQuery {
   /** Length of the period, in days; it is compared with the one before. */
   @IsOptional() @Type(() => Number) @IsIn([7, 30, 90]) days: 7 | 30 | 90 = 30;
 }
 
-const DAY = 86_400_000;
+/** A date column's value as the day it stands for (midnight UTC of that date). */
 const utcDay = (date: Date) => new Date(date.toISOString().slice(0, 10));
 const n = (value: bigint | number | null | undefined) => Number(value ?? 0);
 
@@ -23,8 +25,14 @@ const n = (value: bigint | number | null | undefined) => Number(value ?? 0);
  * (with the previous period for comparison), inventory per project, the
  * units people look at (and the ones nobody does), content that needs
  * attention and recent activity. Lead and activity data only reach users
- * allowed to see them. Days are UTC, as unit views are counted.
+ * allowed to see them. Days are Vietnamese days, as unit views are counted.
  */
+/** Where a viewed unit stands now: views of every kind add up to the chart's total. */
+const KIND_SQL = Prisma.sql`CASE
+  WHEN u.id IS NULL OR u.deleted_at IS NOT NULL THEN 'deleted'
+  WHEN u.status <> 'PUBLISHED' THEN 'hidden'
+  WHEN coalesce(u.floor_note, '') <> '' THEN 'model'
+  ELSE 'live' END`;
 @Injectable()
 export class DashboardService {
   constructor(
@@ -34,24 +42,25 @@ export class DashboardService {
 
   async summary(days: number, user: AuthUser) {
     const can = (p: string) => user.permissions.includes(p);
-    const today = utcDay(new Date());
+    const today = vnDay();
     const from = new Date(today.getTime() - (days - 1) * DAY);
     const prevFrom = new Date(from.getTime() - days * DAY);
     const tomorrow = new Date(today.getTime() + DAY);
     const leadsAllowed = can(PERMISSIONS.leadsRead);
 
-    const [views, leads, inventory, top, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock, sources] =
+    const [views, leads, inventory, top, byUnit, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock, sources] =
       await Promise.all([
         this.prisma.$queryRaw<{ day: Date; views: bigint }[]>`
           SELECT day, sum(views) AS views FROM property_view_days
           WHERE day >= ${prevFrom} AND day < ${tomorrow} GROUP BY day`,
         leadsAllowed
           ? this.prisma.$queryRaw<{ day: Date; leads: bigint }[]>`
-              SELECT (created_at AT TIME ZONE 'UTC')::date AS day, count(*) AS leads FROM leads
-              WHERE deleted_at IS NULL AND created_at >= ${prevFrom} AND created_at < ${tomorrow} GROUP BY 1`
+              SELECT (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day, count(*) AS leads FROM leads
+              WHERE deleted_at IS NULL AND created_at >= ${vnDayStart(prevFrom)} AND created_at < ${vnDayStart(tomorrow)} GROUP BY 1`
           : Promise.resolve([]),
         this.inventory(from),
         this.topUnits(from, leadsAllowed),
+        this.unitViews(from, tomorrow, leadsAllowed),
         this.health(),
         this.prisma.project.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true } }),
         this.posts(),
@@ -102,7 +111,11 @@ export class DashboardService {
         prevLeads: leadsAllowed ? prevLeads : null,
         conversion: leadsAllowed && totalViews ? totalLeads / totalViews : null,
         bySource,
+        // The total split by where the viewed units stand now.
+        byKind: byUnit.reduce<Record<string, number>>((all, u) => ({ ...all, [u.kind]: (all[u.kind] ?? 0) + u.views }), {}),
       },
+      // Every unit viewed in the period, most first: they add up to the total.
+      unitViews: byUnit.map((u) => ({ ...u, sources: (unitSources.get(u.id) ?? []).sort((a, b) => b.views - a.views) })),
       inventory,
       topUnits: top.hot.map((u) => ({
         ...u,
@@ -172,7 +185,7 @@ export class DashboardService {
     >`
       SELECT u.id, u.name, u.unit_code, u.floor_note, u.availability, u.status, p.name AS project, m.url AS cover,
         coalesce((SELECT sum(v.views) FROM property_view_days v WHERE v.property_id = u.id AND v.day >= ${from}), 0) AS views,
-        (SELECT count(*) FROM leads l WHERE l.property_id = u.id AND l.deleted_at IS NULL AND l.created_at >= ${from}) AS leads
+        (SELECT count(*) FROM leads l WHERE l.property_id = u.id AND l.deleted_at IS NULL AND l.created_at >= ${vnDayStart(from)}) AS leads
       FROM properties u JOIN projects p ON p.id = u.project_id LEFT JOIN media_assets m ON m.id = u.cover_image_id
       WHERE u.deleted_at IS NULL AND u.status <> 'ARCHIVED' AND NOT u.is_demo`;
     const units = rows.map((r) => ({
@@ -195,6 +208,29 @@ export class DashboardService {
       cold: cold.slice(0, 6),
       coldCount: cold.length,
     };
+  }
+
+  /** Views of each unit in the period, deleted and hidden units included. */
+  private async unitViews(from: Date, until: Date, withLeads: boolean) {
+    const rows = await this.prisma.$queryRaw<
+      { id: string; name: string | null; unit_code: string | null; project: string | null; kind: string; views: bigint; leads: bigint }[]
+    >`
+      SELECT v.property_id AS id, u.name, u.unit_code, p.name AS project, ${KIND_SQL} AS kind, sum(v.views) AS views,
+        (SELECT count(*) FROM leads l WHERE l.property_id = v.property_id AND l.deleted_at IS NULL
+          AND l.created_at >= ${vnDayStart(from)} AND l.created_at < ${vnDayStart(until)}) AS leads
+      FROM property_view_days v LEFT JOIN properties u ON u.id = v.property_id LEFT JOIN projects p ON p.id = u.project_id
+      WHERE v.day >= ${from} AND v.day < ${until}
+      GROUP BY v.property_id, u.id, u.name, u.unit_code, p.name
+      ORDER BY sum(v.views) DESC, u.name`;
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      unitCode: r.unit_code,
+      project: r.project,
+      kind: r.kind,
+      views: n(r.views),
+      leads: withLeads ? n(r.leads) : 0,
+    }));
   }
 
   /** Content that is incomplete or waiting. */
@@ -236,7 +272,7 @@ export class DashboardService {
     const live = { deletedAt: null };
     const [byStatus, bySource, recent, overdue] = await Promise.all([
       this.prisma.lead.groupBy({ by: ['status'], where: live, _count: { _all: true } }),
-      this.prisma.lead.groupBy({ by: ['source'], where: { ...live, createdAt: { gte: from } }, _count: { _all: true } }),
+      this.prisma.lead.groupBy({ by: ['source'], where: { ...live, createdAt: { gte: vnDayStart(from) } }, _count: { _all: true } }),
       this.prisma.lead.findMany({
         where: live,
         orderBy: { createdAt: 'desc' },

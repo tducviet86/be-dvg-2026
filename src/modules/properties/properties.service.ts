@@ -14,6 +14,7 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { I18nService } from '../i18n/i18n.service.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
 import { IndexNowService } from '../indexnow/indexnow.service.js';
+import { DAY_MS, vnDay, vnDayStart } from '../../common/vn-day.js';
 import type { AdminPropertyQuery, CreatePropertyDto, PublicPropertyQuery, UpdatePropertyDto } from './properties.dto.js';
 
 const include = {
@@ -107,12 +108,12 @@ function toPublic(p: Row, interest?: Interest) {
     updatedAt: p.updatedAt,
   };
 }
-function toAdmin(p: Row, interest?: Interest, editors?: Editors) {
+function toAdmin(p: Row, interest?: Interest, editors?: Editors, days: number = INTEREST_DAYS) {
   return {
     ...toPublic(p, interest),
     createdBy: editors?.createdBy ?? null,
     updatedBy: editors?.updatedBy ?? null,
-    interest: { days: INTEREST_DAYS, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
+    interest: { days, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
     availabilityChangedAt: p.availabilityChangedAt,
     status: p.status,
     projectId: p.projectId,
@@ -222,15 +223,16 @@ export class PropertiesService {
     return editorsOf(this.prisma, 'property', 'property', ids);
   }
 
-  /** Views and enquiries per unit over the last INTEREST_DAYS days. */
-  async interest(ids: string[]): Promise<Map<string, Interest>> {
+  /** Views and enquiries per unit over the last `days` days (Vietnamese days, today included). */
+  async interest(ids: string[], days = INTEREST_DAYS): Promise<Map<string, Interest>> {
     const result = new Map<string, Interest>();
     if (!ids.length) return result;
-    const since = new Date(Date.now() - INTEREST_DAYS * 86_400_000);
+    const first = new Date(vnDay().getTime() - (days - 1) * DAY_MS);
+    const since = vnDayStart(first);
     const [views, leads] = await Promise.all([
       this.prisma.propertyViewDay.groupBy({
         by: ['propertyId'],
-        where: { propertyId: { in: ids }, day: { gte: new Date(since.toISOString().slice(0, 10)) } },
+        where: { propertyId: { in: ids }, day: { gte: first } },
         _sum: { views: true },
       }),
       this.prisma.lead.groupBy({
@@ -256,7 +258,7 @@ export class PropertiesService {
       select: { id: true },
     });
     if (!row) return;
-    const day = new Date(new Date().toISOString().slice(0, 10));
+    const day = vnDay();
     const from = (VIEW_SOURCES as readonly string[]).includes(source) ? source : 'other';
     await this.prisma.$transaction([
       this.prisma.propertyViewDay.upsert({
@@ -292,8 +294,8 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
     const ids = rows.map((r) => r.id);
-    const [interest, editors] = await Promise.all([this.interest(ids), this.editors(ids)]);
-    return { data: rows.map((r) => toAdmin(r, interest.get(r.id), editors.get(r.id))), meta: pageMeta(q.page, q.pageSize, total) };
+    const [interest, editors] = await Promise.all([this.interest(ids, q.interestDays), this.editors(ids)]);
+    return { data: rows.map((r) => toAdmin(r, interest.get(r.id), editors.get(r.id), q.interestDays)), meta: pageMeta(q.page, q.pageSize, total) };
   }
 
   /** Counts for the admin list's summary cards (archived units left out). */

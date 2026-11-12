@@ -106,4 +106,6 @@ export class AdminPropertyQuery extends PublicPropertyQuery {
   @IsOptional() @IsIn([...HIGHLIGHTS, 'none']) highlight?: (typeof HIGHLIGHTS)[number] | 'none';
   /** 'model': a project's model apartments (they have a floor note); 'unit': the rest. */
   @IsOptional() @IsIn(['unit', 'model']) kind?: 'unit' | 'model';
+  /** Days the "Quan tâm" column counts (the dashboard's period); 14 by default. */
+  @IsOptional() @Type(() => Number) @IsIn([7, 14, 30, 90]) interestDays?: 7 | 14 | 30 | 90;
 }
