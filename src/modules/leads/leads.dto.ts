@@ -10,7 +10,8 @@ export class PublicFormDto {
   @Clean() @IsString() @MinLength(2) @MaxLength(80) name: string;
   @IsEmail() @MaxLength(120) email: string;
   @IsOptional() @Matches(/^(0|\+84)(3|5|7|8|9)\d{8}$/, { message: 'Số di động Việt Nam không hợp lệ.' }) phone?: string;
-  @Clean() @IsString() @MinLength(10) @MaxLength(1500) message: string;
+  /** Optional: visitors pick the kind of advice; the API writes a summary when empty. */
+  @IsOptional() @Clean() @IsString() @MaxLength(1500) message?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(80) source?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(120) intent?: string;
   @IsBoolean() @Equals(true, { message: 'Bạn cần đồng ý để chúng tôi liên hệ.' }) consent: boolean;

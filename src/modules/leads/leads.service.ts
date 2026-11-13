@@ -72,25 +72,29 @@ export class LeadsService {
       return { id: null };
     }
     const ipHash = this.ipHash(ctx.ip);
-    // Same sender, same message within 10 minutes: treat as a duplicate.
+    const source = dto.source || (kind === 'CONTACT' ? 'Liên hệ' : 'Tư vấn');
+    const [project, property] = await Promise.all([
+      dto.projectSlug ? this.prisma.project.findFirst({ where: { slug: dto.projectSlug, deletedAt: null }, select: { id: true, name: true } }) : null,
+      dto.propertySlug
+        ? this.prisma.property.findFirst({ where: { slug: dto.propertySlug, deletedAt: null }, select: { id: true, projectId: true, name: true, unitCode: true } })
+        : null,
+    ]);
+    const message = dto.message?.trim() || this.summary(dto.intent || source, project?.name, property);
+    // Same sender, same request from the same form within 10 minutes: a duplicate.
     const duplicate = await this.prisma.lead.findFirst({
-      where: { email: dto.email.toLowerCase(), message: dto.message, createdAt: { gte: new Date(Date.now() - 600_000) } },
+      where: { email: dto.email.toLowerCase(), message, source, createdAt: { gte: new Date(Date.now() - 600_000) } },
       select: { id: true },
     });
     if (duplicate) return { id: duplicate.id };
-    const [project, property] = await Promise.all([
-      dto.projectSlug ? this.prisma.project.findFirst({ where: { slug: dto.projectSlug, deletedAt: null }, select: { id: true } }) : null,
-      dto.propertySlug ? this.prisma.property.findFirst({ where: { slug: dto.propertySlug, deletedAt: null }, select: { id: true, projectId: true } }) : null,
-    ]);
     const lead = await this.prisma.lead.create({
       data: {
         kind,
-        source: dto.source || (kind === 'CONTACT' ? 'Liên hệ' : 'Tư vấn'),
+        source,
         intent: dto.intent,
         name: dto.name,
         email: dto.email.toLowerCase(),
         phone: dto.phone,
-        message: dto.message,
+        message,
         projectId: project?.id ?? property?.projectId,
         propertyId: property?.id,
         consentAt: new Date(),
@@ -100,6 +104,17 @@ export class LeadsService {
     });
     void this.notifyNewLead(lead.id);
     return { id: lead.id };
+  }
+
+  /** Readable request when the visitor only picked the kind of advice: "Tìm thuê bất động sản · Căn hộ 2PN (mã A12) · Dự án Sun Ponte". */
+  private summary(need: string, projectName?: string, property?: { name: string; unitCode: string | null } | null) {
+    return [
+      need,
+      property && `${property.name}${property.unitCode ? ` (mã ${property.unitCode})` : ''}`,
+      projectName && `Dự án ${projectName}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
 
   /** Recipient: Admin › Cài đặt › "Email tiếp nhận yêu cầu", else LEADS_NOTIFY_EMAIL. */

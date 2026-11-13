@@ -142,6 +142,51 @@ describe('lead intake', () => {
     }
   });
 
+  it('accepts a request without a message and writes one from the need, project and unit', async () => {
+    const project = await prisma.project.create({ data: { slug: 'sun-ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
+    await http()
+      .post('/api/v1/contact')
+      .send(form({ message: undefined, intent: 'Ký gửi bán hoặc cho thuê', source: 'Hợp tác chủ sở hữu' }))
+      .expect(202);
+    await http()
+      .post('/api/v1/inquiries')
+      .send(form({ email: 'b@example.com', message: '   ', intent: 'Tìm thuê bất động sản', projectSlug: 'sun-ponte' }))
+      .expect(202);
+    // No intent either: the source names the request.
+    await http().post('/api/v1/contact').send(form({ email: 'c@example.com', message: undefined })).expect(202);
+    const leads = await prisma.lead.findMany({ orderBy: { createdAt: 'asc' } });
+    expect(leads.map((l) => [l.intent, l.source, l.message])).toEqual([
+      ['Ký gửi bán hoặc cho thuê', 'Hợp tác chủ sở hữu', 'Ký gửi bán hoặc cho thuê'],
+      ['Tìm thuê bất động sản', 'Tư vấn', 'Tìm thuê bất động sản · Dự án Sun Ponte'],
+      [null, 'Liên hệ', 'Liên hệ'],
+    ]);
+    expect(leads[1]!.projectId).toBe(project.id);
+    // The same request again within minutes is a duplicate.
+    await http()
+      .post('/api/v1/inquiries')
+      .send(form({ email: 'b@example.com', message: undefined, intent: 'Tìm thuê bất động sản', projectSlug: 'sun-ponte' }))
+      .expect(202);
+    expect(await prisma.lead.count()).toBe(3);
+    // The same need sent from another form is a new request.
+    await http()
+      .post('/api/v1/inquiries')
+      .send(form({ email: 'b@example.com', message: undefined, intent: 'Tìm thuê bất động sản', projectSlug: 'sun-ponte', source: 'Dịch vụ: Quản lý' }))
+      .expect(202);
+    expect(await prisma.lead.count()).toBe(4);
+    // A unit page: the unit and its project.
+    await admin.post('/api/v1/admin/properties', { slug: 'sun-ponte-a', unitCode: 'A', name: 'Căn hộ 2PN view sông', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED' }).expect(201);
+    await http()
+      .post('/api/v1/inquiries')
+      .send(form({ email: 'd@example.com', message: undefined, intent: 'Tìm thuê bất động sản', propertySlug: 'sun-ponte-a' }))
+      .expect(202);
+    expect(await prisma.lead.findFirstOrThrow({ where: { email: 'd@example.com' } })).toMatchObject({
+      projectId: project.id,
+      message: 'Tìm thuê bất động sản · Căn hộ 2PN view sông (mã A)',
+    });
+    // Over-long messages are still refused.
+    await http().post('/api/v1/contact').send(form({ message: 'x'.repeat(1501) })).expect(400);
+  });
+
   it('newsletter subscription is idempotent', async () => {
     await http().post('/api/v1/newsletter').send({ email: 'a@example.com' }).expect(202);
     await http().post('/api/v1/newsletter').send({ email: 'A@example.com' }).expect(202);
