@@ -135,6 +135,8 @@ export class CreateProjectDto {
   @IsOptional() @Clean() @IsString() @MaxLength(120) seoTitle?: string | null;
   @IsOptional() @Clean() @IsString() @MaxLength(320) seoDescription?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() sortOrder?: number;
+  /** 1-based place among all projects; the others are renumbered 1..n. */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) position?: number;
   @IsOptional() @CleanList() @IsArray() @ArrayMaxSize(60) @IsString({ each: true }) @MaxLength(160, { each: true }) amenities?: string[];
   @IsOptional() @IsArray() @ArrayMaxSize(12) @ValidateNested({ each: true }) @Type(() => HighlightDto) highlights?: HighlightDto[];
   @IsOptional() @IsArray() @ArrayUnique() @ArrayMaxSize(60) @IsUUID('all', { each: true }) galleryImageIds?: string[];

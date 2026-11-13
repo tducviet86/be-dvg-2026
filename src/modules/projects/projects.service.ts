@@ -151,6 +151,7 @@ export class ProjectsService {
         data: { ...this.scalarData(dto), slug: dto.slug, name: dto.name, location: dto.location, intro: dto.intro, ...publishFields(dto.status ?? 'DRAFT', undefined, dto.publishedAt ? new Date(dto.publishedAt) : undefined) },
       });
       await this.writeRelations(tx, project.id, dto);
+      if (dto.position !== undefined) await this.place(tx, project.id, dto.position);
       await this.removeRedirect(tx, dto.slug);
       if (dto.banner) await this.banners.syncProjectBanner(tx, project.id, dto.banner);
       await this.audit.log({ actorId: user.id, action: 'project.create', entityType: 'project', entityId: project.id, changes: { slug: dto.slug, status: project.status, banner: dto.banner?.enabled ?? false } }, tx);
@@ -195,6 +196,7 @@ export class ProjectsService {
         });
       }
       await this.writeRelations(tx, id, dto);
+      if (dto.position !== undefined) await this.place(tx, id, dto.position);
       if (dto.banner) await this.banners.syncProjectBanner(tx, id, dto.banner);
       await this.audit.log({ actorId: user.id, action: 'project.update', entityType: 'project', entityId: id, changes: JSON.parse(JSON.stringify({ ...dto, overview: undefined })) }, tx);
     });
@@ -224,6 +226,24 @@ export class ProjectsService {
     });
     await this.revalidation.trigger('projects', 'banners', 'properties');
     await this.indexNow.changed('project', id);
+  }
+
+  /**
+   * Moves a project to 1-based `position` in the display order (sortOrder,
+   * then name) and renumbers all projects 1..n. Raw SQL so the other
+   * projects' updatedAt (used to detect concurrent edits) stays as it is.
+   */
+  private async place(tx: Tx, projectId: string, position: number) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(812005)`;
+    const others = await tx.project.findMany({
+      where: { deletedAt: null, id: { not: projectId } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true },
+    });
+    const ids = others.map((p) => p.id);
+    ids.splice(Math.min(position - 1, ids.length), 0, projectId);
+    const orders = ids.map((_, i) => i + 1);
+    await tx.$executeRaw`UPDATE projects p SET sort_order = v.n FROM unnest(${ids}::uuid[], ${orders}::int[]) AS v(id, n) WHERE p.id = v.id AND p.sort_order <> v.n`;
   }
 
   private assertPublishRight(next: string | undefined, current: string | undefined, user: AuthUser) {

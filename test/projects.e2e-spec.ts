@@ -162,6 +162,31 @@ describe('projects & homepage banner', () => {
     await admin.post('/api/v1/admin/banners', { type: 'NORMAL', title: 'C', imageId: img.id, projectId: b.id }).expect(400);
   });
 
+  it('places a project at a chosen position and renumbers the rest without touching them', async () => {
+    const make = async (slug: string, name: string) =>
+      (await admin.post('/api/v1/admin/projects', base({ slug, name, status: 'PUBLISHED' })).expect(201)).body.data.id as string;
+    const a = await make('du-an-a', 'Dự án A');
+    await make('du-an-b', 'Dự án B');
+    const c = await make('du-an-c', 'Dự án C');
+    const names = async () => (await http().get('/api/v1/projects').expect(200)).body.data.map((p: { name: string }) => p.name);
+    expect(await names()).toEqual(['Dự án A', 'Dự án B', 'Dự án C']);
+    const before = await prisma.project.findUniqueOrThrow({ where: { id: a } });
+
+    await admin.patch(`/api/v1/admin/projects/${c}`, { position: 1 }).expect(200);
+    expect(await names()).toEqual(['Dự án C', 'Dự án A', 'Dự án B']);
+    const orders = await prisma.project.findMany({ orderBy: { sortOrder: 'asc' }, select: { sortOrder: true } });
+    expect(orders.map((p) => p.sortOrder)).toEqual([1, 2, 3]);
+    // Renumbering another project does not count as editing it.
+    expect((await prisma.project.findUniqueOrThrow({ where: { id: a } })).updatedAt).toEqual(before.updatedAt);
+
+    // Past the end means last; a new project can be placed on creation.
+    await admin.patch(`/api/v1/admin/projects/${c}`, { position: 99 }).expect(200);
+    expect(await names()).toEqual(['Dự án A', 'Dự án B', 'Dự án C']);
+    await admin.post('/api/v1/admin/projects', base({ slug: 'du-an-d', name: 'Dự án D', status: 'PUBLISHED', position: 2 })).expect(201);
+    expect(await names()).toEqual(['Dự án A', 'Dự án D', 'Dự án B', 'Dự án C']);
+    await admin.patch(`/api/v1/admin/projects/${a}`, { position: 0 }).expect(400);
+  });
+
   it('refuses to archive a project with units; archived slugs answer 410', async () => {
     const { body } = await admin.post('/api/v1/admin/projects', base({ status: 'PUBLISHED', banner: { enabled: true, useProjectImage: true } })).expect(201);
     const type = await prisma.propertyType.findFirstOrThrow();
