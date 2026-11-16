@@ -1,8 +1,8 @@
-import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
+import { Controller, Get, Header, Injectable, Module, Query, StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Prisma } from '../../generated/prisma/client.js';
 import { Type } from 'class-transformer';
-import { IsIn, IsOptional } from 'class-validator';
+import { IsIn, IsOptional, Matches } from 'class-validator';
 import { CurrentUser, RequirePermissions } from '../../common/decorators/auth.decorators.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -10,10 +10,19 @@ import { PERMISSIONS } from '../auth/permissions.js';
 import { MediaModule } from '../media/media.module.js';
 import { MediaService } from '../media/media.service.js';
 import { DAY_MS as DAY, vnDay, vnDayStart } from '../../common/vn-day.js';
+import { DashboardReportService } from './dashboard-report.js';
+import { ContactClicksController, ContactClicksService } from './contact-clicks.js';
 
 class DashboardQuery {
   /** Length of the period, in days; it is compared with the one before. */
   @IsOptional() @Type(() => Number) @IsIn([7, 30, 90]) days: 7 | 30 | 90 = 30;
+}
+
+class ReportQuery {
+  /** First day of the report (Vietnamese day), YYYY-MM-DD. */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) from: string;
+  /** Last day, YYYY-MM-DD; a day after today counts as today. */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) to: string;
 }
 
 /** A date column's value as the day it stands for (midnight UTC of that date). */
@@ -48,14 +57,14 @@ export class DashboardService {
     const tomorrow = new Date(today.getTime() + DAY);
     const leadsAllowed = can(PERMISSIONS.leadsRead);
 
-    const [views, leads, inventory, top, byUnit, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock, sources] =
+    const [views, leads, inventory, top, byUnit, health, projects, posts, jobs, mediaStats, activity, applications, leadBlock, sources, clickDays, recentClicks] =
       await Promise.all([
         this.prisma.$queryRaw<{ day: Date; views: bigint }[]>`
           SELECT day, sum(views) AS views FROM property_view_days
           WHERE day >= ${prevFrom} AND day < ${tomorrow} GROUP BY day`,
         leadsAllowed
           ? this.prisma.$queryRaw<{ day: Date; leads: bigint }[]>`
-              SELECT (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day, count(*) AS leads FROM leads
+              SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day, count(*) AS leads FROM leads
               WHERE deleted_at IS NULL AND created_at >= ${vnDayStart(prevFrom)} AND created_at < ${vnDayStart(tomorrow)} GROUP BY 1`
           : Promise.resolve([]),
         this.inventory(from),
@@ -72,14 +81,37 @@ export class DashboardService {
         this.prisma.$queryRaw<{ property_id: string; source: string; views: bigint }[]>`
           SELECT property_id, source, sum(views) AS views FROM property_view_sources
           WHERE day >= ${from} AND day < ${tomorrow} GROUP BY property_id, source`,
+        this.prisma.$queryRaw<{ day: Date; kind: string; source: string; clicks: bigint }[]>`
+          SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day, kind, source, count(*) AS clicks
+          FROM contact_clicks WHERE created_at >= ${vnDayStart(prevFrom)} AND created_at < ${vnDayStart(tomorrow)} GROUP BY 1, 2, 3`,
+        this.prisma.contactClick.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 8,
+          select: { id: true, kind: true, source: true, path: true, target: true, createdAt: true, property: { select: { name: true, unitCode: true } } },
+        }),
       ]);
 
     // One row per day of the period, the previous period summed for deltas.
     const viewsBy = new Map(views.map((r) => [utcDay(r.day).getTime(), n(r.views)]));
     const leadsBy = new Map(leads.map((r) => [utcDay(r.day).getTime(), n(r.leads)]));
+    // Taps on call / Zalo / WhatsApp links: per day in the period, totals by kind and source.
+    const clicksBy = new Map<number, number>();
+    const clickKinds: Record<string, number> = {};
+    const clickSources: Record<string, number> = {};
+    let prevClicks = 0;
+    for (const r of clickDays) {
+      const t = utcDay(r.day).getTime();
+      if (t < from.getTime()) {
+        prevClicks += n(r.clicks);
+        continue;
+      }
+      clicksBy.set(t, (clicksBy.get(t) ?? 0) + n(r.clicks));
+      clickKinds[r.kind] = (clickKinds[r.kind] ?? 0) + n(r.clicks);
+      clickSources[r.source] = (clickSources[r.source] ?? 0) + n(r.clicks);
+    }
     const series = Array.from({ length: days }, (_, i) => {
       const t = from.getTime() + i * DAY;
-      return { day: new Date(t).toISOString().slice(0, 10), views: viewsBy.get(t) ?? 0, leads: leadsBy.get(t) ?? 0 };
+      return { day: new Date(t).toISOString().slice(0, 10), views: viewsBy.get(t) ?? 0, leads: leadsBy.get(t) ?? 0, clicks: clicksBy.get(t) ?? 0 };
     });
     const sumRange = (map: Map<number, number>, start: Date, end: Date) =>
       [...map].reduce((s, [t, v]) => (t >= start.getTime() && t < end.getTime() ? s + v : s), 0);
@@ -135,6 +167,15 @@ export class DashboardService {
         expired: jobs.filter((j) => j.deadline && j.deadline.getTime() < todayIso).length,
       },
       leads: leadBlock,
+      contactClicks: {
+        total: Object.values(clickKinds).reduce((s, v) => s + v, 0),
+        prevTotal: prevClicks,
+        byKind: clickKinds,
+        bySource: Object.entries(clickSources)
+          .map(([source, clicks]) => ({ source, clicks }))
+          .sort((a, b) => b.clicks - a.clicks),
+        recent: recentClicks,
+      },
       applications,
       activity,
     };
@@ -331,14 +372,29 @@ export class DashboardService {
 @ApiTags('admin/dashboard')
 @Controller('admin/dashboard')
 export class DashboardController {
-  constructor(private readonly dashboard: DashboardService) {}
+  constructor(
+    private readonly dashboard: DashboardService,
+    private readonly report: DashboardReportService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.contentRead)
   async summary(@Query() q: DashboardQuery, @CurrentUser() user: AuthUser) {
     return { data: await this.dashboard.summary(q.days, user) };
   }
+
+  /** The dashboard for a chosen period as an Excel workbook (contacts only with leads:export). */
+  @Get('export')
+  @RequirePermissions(PERMISSIONS.contentRead)
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Cache-Control', 'no-store')
+  async export(@Query() q: ReportQuery, @CurrentUser() user: AuthUser) {
+    const { buffer, filename, fallback } = await this.report.build(q.from, q.to, user);
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    });
+  }
 }
 
-@Module({ imports: [MediaModule], controllers: [DashboardController], providers: [DashboardService] })
+@Module({ imports: [MediaModule], controllers: [DashboardController, ContactClicksController], providers: [DashboardService, DashboardReportService, ContactClicksService] })
 export class DashboardModule {}

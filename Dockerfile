@@ -48,7 +48,8 @@ CMD ["npx", "prisma", "migrate", "deploy"]
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=4000
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl \
+# fonts-dejavu-core: text in the Excel report's charts (drawn by sharp).
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl fonts-dejavu-core \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist

@@ -53,7 +53,7 @@ const isHidden = (p: Pick<Row, 'availability' | 'availabilityChangedAt'>) =>
 const interestScore = (i?: Interest) => (i ? i.views + i.leads * LEAD_WEIGHT : 0);
 const trending = (i?: Interest) => interestScore(i) >= TRENDING_SCORE;
 /** Crawlers and link previews do not count as interest. */
-const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|curl|wget|python|axios|node-fetch/i;
+export const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|curl|wget|python|axios|node-fetch/i;
 
 function toPublic(p: Row, interest?: Interest) {
   const alt = p.coverImageAlt || `${p.name}${p.isDemo ? ' · Ảnh nội thất minh họa' : ''}`;

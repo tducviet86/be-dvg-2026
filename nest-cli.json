@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
+    "assets": ["modules/dashboard/*.png"],
     "plugins": [
       {
         "name": "@nestjs/swagger",
