@@ -500,6 +500,16 @@ describe('properties', () => {
       { source: 'ai', views: 1 },
       { source: 'other', views: 11 },
     ]);
+    // Each view is also kept one by one for "Lượt xem gần đây": where from,
+    // language and kind of device only (no IP, no user agent).
+    await http().post('/api/v1/properties/pn-hot/view?source=zalo&locale=ko').set('user-agent', browser).expect(204);
+    await http().post('/api/v1/properties/pn-hot/view?locale=xx').set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130').expect(204);
+    expect(await prisma.propertyView.count()).toBe(14);
+    const recent = (await admin.get('/api/v1/admin/dashboard?days=7').expect(200)).body.data.recentViews;
+    expect(recent).toHaveLength(14);
+    expect(recent[0]).toMatchObject({ source: 'other', locale: 'vi', device: 'desktop', path: '/cho-thue/pn-hot', name: 'Căn pn-hot' });
+    expect(recent[1]).toMatchObject({ source: 'zalo', locale: 'ko', device: 'mobile' });
+    expect(Object.keys(recent[0]).sort()).toEqual(['at', 'device', 'id', 'locale', 'name', 'path', 'project', 'source', 'unitCode']);
     // The badge can be removed again.
     await admin.patch(`/api/v1/admin/properties/${body.data.id}`, { highlight: null }).expect(200);
     expect((await http().get('/api/v1/properties/pn-hot').expect(200)).body.data.highlight).toBeNull();

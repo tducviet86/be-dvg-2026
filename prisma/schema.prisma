@@ -425,6 +425,7 @@ model Property {
   views        PropertyViewDay[]
   viewSources  PropertyViewSource[]
   contactClicks ContactClick[]
+  viewLog      PropertyView[]
 
   @@index([status, deletedAt, projectId])
   @@index([projectId])
@@ -798,6 +799,25 @@ model PropertyViewDay {
 
 /// A tap on a call (tel:), Zalo or WhatsApp link on the site; the unit when
 /// it was on a unit page. Nothing about the visitor is kept.
+/// One row per unit page view, for "Lượt xem gần đây" in Admin › Tổng quan.
+/// No visitor data (no IP, no user agent): when, which unit, where from,
+/// in which language, on which kind of device. Kept 90 days.
+model PropertyView {
+  id         String   @id @default(uuid()) @db.Uuid
+  propertyId String   @map("property_id") @db.Uuid
+  /// Where the visit came from (see property_view_sources).
+  source     String   @db.VarChar(16)
+  /// vi | en | ko | zh
+  locale     String   @db.VarChar(5)
+  /// mobile | tablet | desktop
+  device     String   @db.VarChar(10)
+  createdAt  DateTime @default(now()) @map("created_at")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("property_views")
+}
+
 model ContactClick {
   id         String    @id @default(uuid()) @db.Uuid
   /// call | zalo | whatsapp

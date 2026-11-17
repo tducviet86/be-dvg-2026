@@ -91,6 +91,20 @@ export class DashboardService {
         }),
       ]);
 
+    // The latest unit page views, one by one ("Lượt xem gần đây").
+    const recentViews = await this.prisma.propertyView.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        source: true,
+        locale: true,
+        device: true,
+        createdAt: true,
+        property: { select: { name: true, unitCode: true, slug: true, forRent: true, project: { select: { name: true } } } },
+      },
+    });
+
     // One row per day of the period, the previous period summed for deltas.
     const viewsBy = new Map(views.map((r) => [utcDay(r.day).getTime(), n(r.views)]));
     const leadsBy = new Map(leads.map((r) => [utcDay(r.day).getTime(), n(r.leads)]));
@@ -147,6 +161,18 @@ export class DashboardService {
         byKind: byUnit.reduce<Record<string, number>>((all, u) => ({ ...all, [u.kind]: (all[u.kind] ?? 0) + u.views }), {}),
       },
       // Every unit viewed in the period, most first: they add up to the total.
+      recentViews: recentViews.map((v) => ({
+        id: v.id,
+        at: v.createdAt,
+        source: v.source,
+        locale: v.locale,
+        device: v.device,
+        name: v.property.name,
+        unitCode: v.property.unitCode,
+        project: v.property.project?.name ?? null,
+        // The unit's page: rentals under /cho-thue, units only for sale under /mua-ban.
+        path: `/${v.property.forRent === false ? 'mua-ban' : 'cho-thue'}/${v.property.slug}`,
+      })),
       unitViews: byUnit.map((u) => ({ ...u, sources: (unitSources.get(u.id) ?? []).sort((a, b) => b.views - a.views) })),
       inventory,
       topUnits: top.hot.map((u) => ({

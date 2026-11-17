@@ -157,6 +157,16 @@ const kindWhere = (kind?: AdminPropertyQuery['kind']): Prisma.PropertyWhereInput
 
 /** Where a unit page view came from, as the page reports it. */
 export const VIEW_SOURCES = ['google', 'search', 'ai', 'zalo', 'facebook', 'direct', 'other'] as const;
+export const VIEW_LOCALES = ['vi', 'en', 'ko', 'zh'] as const;
+/** Kind of device from the browser's user agent (nothing else is kept). */
+export const deviceOf = (userAgent: string) =>
+  /ipad|tablet|kindle|silk|playbook|(android(?!.*mobile))/i.test(userAgent)
+    ? 'tablet'
+    : /mobi|iphone|ipod|android|phone/i.test(userAgent)
+      ? 'mobile'
+      : 'desktop';
+/** "Lượt xem gần đây" keeps this many days. */
+const VIEW_LOG_DAYS = 90;
 
 @Injectable()
 export class PropertiesService {
@@ -251,7 +261,7 @@ export class PropertiesService {
    * Counts one page view of a live unit (sample units and crawlers excluded),
    * and where the visitor came from (VIEW_SOURCES; anything else is "other").
    */
-  async recordView(slug: string, userAgent = '', source = '') {
+  async recordView(slug: string, userAgent = '', source = '', locale = '') {
     if (!userAgent || BOT.test(userAgent)) return;
     const row = await this.prisma.property.findFirst({
       where: { slug, isDemo: false, ...publishedWhere(), project: publishedWhere() },
@@ -260,7 +270,11 @@ export class PropertiesService {
     if (!row) return;
     const day = vnDay();
     const from = (VIEW_SOURCES as readonly string[]).includes(source) ? source : 'other';
+    const lang = (VIEW_LOCALES as readonly string[]).includes(locale) ? locale : 'vi';
     await this.prisma.$transaction([
+      this.prisma.propertyView.create({
+        data: { propertyId: row.id, source: from, locale: lang, device: deviceOf(userAgent) },
+      }),
       this.prisma.propertyViewDay.upsert({
         where: { propertyId_day: { propertyId: row.id, day } },
         create: { propertyId: row.id, day, views: 1 },
@@ -272,6 +286,9 @@ export class PropertiesService {
         update: { views: { increment: 1 } },
       }),
     ]);
+    // Now and then (about 1 view in 200), drop log rows past their 90 days.
+    if (Math.random() < 0.005)
+      await this.prisma.propertyView.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - VIEW_LOG_DAYS * 86_400_000) } } });
   }
 
   types() {

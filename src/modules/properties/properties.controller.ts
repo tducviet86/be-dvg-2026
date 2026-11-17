@@ -39,8 +39,9 @@ export class PropertiesController {
     @Param('slug') slug: string,
     @Headers('user-agent') userAgent?: string,
     @Query('source') source?: string,
+    @Query('locale') locale?: string,
   ) {
-    await this.properties.recordView(slug.slice(0, 200), userAgent, String(source ?? '').slice(0, 16));
+    await this.properties.recordView(slug.slice(0, 200), userAgent, String(source ?? '').slice(0, 16), String(locale ?? '').slice(0, 5));
   }
 
   @Get('admin/properties')
