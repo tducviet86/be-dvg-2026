@@ -152,6 +152,30 @@ describe('keywords from Search Console', () => {
     denied = false;
   });
 
+  it('writes the SEO tags of a unit from the real searches that fit it', async () => {
+    const admin = await login(app, 'admin@dvg.test');
+    const res = (
+      await admin
+        .post('/api/v1/admin/seo/unit-suggest', {
+          title: 'View sông Hàn, ban công rộng',
+          summary: 'Căn hộ 2 phòng ngủ đầy đủ nội thất, view sông Hàn, vào ở ngay.',
+          context: 'Dự án: The Monarchy · Tòa T2 · Tầng 12 · 2 phòng ngủ',
+          listing: 'rent',
+          project: 'The Monarchy',
+          kind: 'apartment',
+        })
+        .expect(200)
+    ).body.data;
+    // The search naming the project first, then the general one for a rental.
+    expect(res.searches).toEqual(['monarchy đà nẵng', 'thuê căn hộ 2pn đà nẵng']);
+    expect(res.seoTitle).toBeTruthy();
+    const prompt = JSON.stringify(seen.filter((s) => s.url === 'gemini').at(-1)?.body);
+    expect(prompt).toContain('Khách thật sự tìm trên Google');
+    expect(prompt).toContain('monarchy đà nẵng');
+    // An editor without the right to write units cannot ask.
+    await http().post('/api/v1/admin/seo/unit-suggest', { title: 'x y', listing: 'rent' }).expect(401);
+  });
+
   it('proposes a title for the page a search lands on, and applies it', async () => {
     const admin = await login(app, 'admin@dvg.test');
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Dự án bên sông Hàn.', status: 'PUBLISHED', publishedAt: new Date() } });

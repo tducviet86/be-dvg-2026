@@ -420,13 +420,14 @@ describe('properties', () => {
     expect(free.availability).toBe('AVAILABLE');
   });
 
-  it('groups unit types: apartments (shophouse too), townhouses, premises', async () => {
+  it('groups unit types: apartments (shophouse too), townhouses, premises, offices', async () => {
     const types = (await http().get('/api/v1/property-types').expect(200)).body.data as { code: string; name: string; group: string }[];
     const group = (g: string) => types.filter((t) => t.group === g).map((t) => t.code);
     expect(group('apartment')).toEqual(expect.arrayContaining(['studio', '1pn', '2pn', '3pn', 'shophouse']));
     expect(types.find((t) => t.code === 'nha-pho')).toMatchObject({ name: 'Nhà phố', group: 'townhouse' });
     expect(group('townhouse')).toEqual(['nha-pho']);
     expect(types.find((t) => t.code === 'mat-bang')).toMatchObject({ name: 'Mặt bằng', group: 'premises' });
+    expect(types.find((t) => t.code === 'van-phong')).toMatchObject({ name: 'Văn phòng', group: 'office' });
     const project = await prisma.project.create({ data: { slug: 'euro', name: 'Phúc Lộc Viên', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     await admin.post('/api/v1/admin/properties', { slug: 'mat-bang-a', unitCode: 'A', name: 'Mặt bằng mặt tiền', projectId: project.id, propertyType: 'mat-bang', location: 'Đà Nẵng', areaM2: 120, bedrooms: 0, bathrooms: 1, description: 'Mặt bằng kinh doanh mặt tiền.', rentPriceVnd: '30000000', status: 'PUBLISHED' }).expect(201);
     const unit = (await http().get('/api/v1/properties/mat-bang-a').expect(200)).body.data;

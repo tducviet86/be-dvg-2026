@@ -47,7 +47,7 @@ export async function seedReference(prisma: PrismaClient) {
   for (const [i, [code, name]] of categories.entries())
     await prisma.projectCategory.upsert({ where: { code }, create: { code, name, sortOrder: i }, update: { name, sortOrder: i } });
   // Same list and order as migrations 20261103060000_property_type_groups
-  // and 20261121090000_unit_types_1pn_plus_dualkey.
+  // 20261121090000_unit_types_1pn_plus_dualkey and 20261124090000_unit_type_office.
   const types = [
     ['studio', 'Studio', 'apartment'],
     ['1pn', '1 phòng ngủ', 'apartment'],
@@ -61,6 +61,7 @@ export async function seedReference(prisma: PrismaClient) {
     ['penthouse', 'Penthouse', 'apartment'],
     ['nha-pho', 'Nhà phố', 'townhouse'],
     ['mat-bang', 'Mặt bằng', 'premises'],
+    ['van-phong', 'Văn phòng', 'office'],
   ];
   for (const [i, [code, name, group]] of types.entries())
     await prisma.propertyType.upsert({ where: { code }, create: { code, name, group, sortOrder: i }, update: { name, group, sortOrder: i } });

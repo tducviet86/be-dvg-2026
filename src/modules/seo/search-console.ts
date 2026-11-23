@@ -10,12 +10,13 @@ import { AppError, badRequest, notFound } from '../../common/errors.js';
 import { AppConfig } from '../../config/config.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiModule } from '../ai/ai.controller.js';
-import { AiService } from '../ai/ai.service.js';
+import { AiService, type Listing } from '../ai/ai.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { RevalidationService } from '../revalidation/revalidation.service.js';
 import { landingPages } from '../settings/settings.controller.js';
+import { unitSearches } from './unit-searches.js';
 
 export type KeywordRow = { query: string; page: string; clicks: number; impressions: number; ctr: number; position: number };
 const DAY = 86_400_000;
@@ -139,6 +140,17 @@ class SuggestDto {
   /** The page's <title> and description as served now (read by Admin). */
   @IsOptional() @Clean() @IsString() @MaxLength(300) title?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(500) description?: string;
+}
+/** A unit being written in Admin: its text and facts, for its SEO tags. */
+class UnitSeoDto {
+  @Clean() @IsString() @MinLength(2) @MaxLength(200) title: string;
+  @IsOptional() @Clean() @IsString() @MaxLength(2000) summary?: string;
+  @IsOptional() @Clean() @IsString() @MaxLength(50000) content?: string;
+  @IsOptional() @Clean() @IsString() @MaxLength(1000) context?: string;
+  @IsIn(['rent', 'sale', 'both']) listing: Listing;
+  @IsOptional() @Clean() @IsString() @MaxLength(160) project?: string;
+  /** apartment | shophouse | townhouse | premises | office. */
+  @IsOptional() @IsIn(['apartment', 'shophouse', 'townhouse', 'premises', 'office']) kind?: string;
 }
 class ApplyDto {
   @IsIn(['property', 'project', 'post', 'page', 'landing', 'fixed']) kind: 'property' | 'project' | 'post' | 'page' | 'landing' | 'fixed';
@@ -302,6 +314,41 @@ export class SearchConsoleController {
     await this.audit.log({ actorId: user.id, action: 'ai.keyword_suggest', entityType: target.kind, changes: { query: dto.query, page: dto.page } });
     const { text: _text, ...page } = target;
     return { data: { target: { ...page, instead }, suggestion: { seoTitle: suggestion.seoTitle, seoDescription: suggestion.seoDescription } } };
+  }
+
+  /**
+   * SEO tags for a unit being written, aimed at what people really search
+   * on Google: the searches of the last 90 days that fit the unit (its
+   * project, its kind, rent or sale) go to the AI with its facts. Without
+   * Search Console, the AI works from the facts alone. Nothing is saved.
+   */
+  @Post('unit-suggest')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RequirePermissions(PERMISSIONS.propertiesWrite)
+  async unitSuggest(@Body() dto: UnitSeoDto, @CurrentUser() user: AuthUser) {
+    const { project, kind, ...source } = dto;
+    let searches: string[] = [];
+    if (this.gsc.enabled) {
+      const [rows, projects] = await Promise.all([
+        this.gsc.keywords(90).then((r) => r.rows).catch(() => []),
+        this.prisma.project.findMany({ where: { deletedAt: null }, select: { name: true } }),
+      ]);
+      searches = unitSearches(rows, { project, kind, listing: dto.listing, otherProjects: projects.map((p) => p.name) });
+    }
+    const suggestion = await this.ai.suggestSeo({
+      kind: 'property',
+      ...source,
+      context: [
+        source.context,
+        searches.length &&
+          `Khách thật sự tìm trên Google (Search Console 90 ngày, nhiều lượt hiển thị trước): ${searches.map((q) => `"${q}"`).join(', ')}. Chọn cụm khớp nhất với căn này (đúng dự án, đúng loại, đúng thuê hay bán) và đặt nguyên văn hoặc sát nghĩa ở đầu tiêu đề SEO; dùng các cụm khớp khác trong mô tả SEO và keywords một cách tự nhiên. Bỏ qua cụm không khớp với căn.`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    });
+    await this.audit.log({ actorId: user.id, action: 'ai.unit_seo_suggest', entityType: 'property', changes: { title: dto.title.slice(0, 120), searches } });
+    return { data: { ...suggestion, searches } };
   }
 
   /** Writes the accepted title and description to the page. */

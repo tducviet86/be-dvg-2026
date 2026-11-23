@@ -490,7 +490,7 @@ export class PropertiesService {
     if ((p.latitude == null) !== (p.longitude == null)) throw badRequest('Cần nhập đủ cả vĩ độ và kinh độ.');
     if (p.projectId) return;
     const type = await tx.propertyType.findUnique({ where: { id: p.propertyTypeId }, select: { group: true } });
-    if (type?.group === 'apartment') throw badRequest('Căn hộ cần chọn dự án; chỉ nhà phố và mặt bằng được để trống dự án.');
+    if (type?.group === 'apartment') throw badRequest('Căn hộ cần chọn dự án; chỉ nhà phố, mặt bằng và văn phòng được để trống dự án.');
     if (p.latitude == null) throw badRequest('Căn không thuộc dự án cần vị trí trên bản đồ (vĩ độ và kinh độ).');
   }
 
