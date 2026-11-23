@@ -297,7 +297,7 @@ export class SearchConsoleController {
       title: target.title,
       summary: target.seoDescription ?? undefined,
       content: target.text.slice(0, 8000),
-      context: `Khách đang tìm trên Google cụm từ: "${dto.query}". Đưa đúng cụm từ này (hoặc sát nghĩa, tự nhiên) vào tiêu đề SEO và mô tả SEO để trang được chọn cho cụm từ đó.`,
+      context: `Khách đang tìm trên Google cụm từ: "${dto.query}". Đưa đúng cụm từ này (hoặc sát nghĩa, tự nhiên) vào tiêu đề SEO và mô tả SEO để trang được chọn cho cụm từ đó. Luôn viết tiêu đề và mô tả bằng tiếng Việt: đây là bản gốc, website tự dịch sang tiếng Anh, Hàn, Trung cho các bản /en, /ko, /zh. Nếu cụm từ không phải tiếng Việt, dùng cụm từ tiếng Việt cùng nghĩa (ví dụ "다낭 아파트 임대" → "cho thuê căn hộ Đà Nẵng").`,
     });
     await this.audit.log({ actorId: user.id, action: 'ai.keyword_suggest', entityType: target.kind, changes: { query: dto.query, page: dto.page } });
     const { text: _text, ...page } = target;
@@ -310,6 +310,10 @@ export class SearchConsoleController {
   @RequirePermissions(PERMISSIONS.settingsWrite)
   async apply(@Body() dto: ApplyDto, @CurrentUser() user: AuthUser) {
     const seo = { seoTitle: dto.seoTitle, seoDescription: dto.seoDescription };
+    // The Vietnamese original, shared by every language: no Korean, Chinese
+    // or Japanese text in it (each version is translated from it).
+    if (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(`${seo.seoTitle} ${seo.seoDescription}`))
+      throw badRequest('Tiêu đề và mô tả viết bằng tiếng Việt; website tự dịch cho bản tiếng Anh, Hàn, Trung.');
     if (dto.kind === 'landing') {
       const row = await this.prisma.siteSetting.findUnique({ where: { key: 'seo.landings' } });
       const list = row?.value ? landingPages(String(row.value)) : [];

@@ -194,6 +194,10 @@ describe('keywords from Search Console', () => {
     const fixed = JSON.parse((await prisma.siteSetting.findUniqueOrThrow({ where: { key: 'seo.pages' } })).value as string);
     expect(Object.keys(fixed).sort()).toEqual(['', 'mua-ban']);
     expect((await http().get('/api/v1/settings/public').expect(200)).body.data['seo.pages']).toBeTruthy();
+    // Korean text never goes into the Vietnamese original.
+    await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'fixed', slug: 'mua-ban', seoTitle: '다낭 아파트 임대 | Đất Vàng Group', seoDescription: onPost.suggestion.seoDescription }).expect(400);
+    const prompt2 = JSON.stringify(seen.filter((x) => x.url === 'gemini').at(-1)?.body);
+    expect(prompt2).toContain('Luôn viết tiêu đề và mô tả bằng tiếng Việt');
     // Only the known pages are stored.
     await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'fixed', slug: 'lung-tung', ...onPost.suggestion }).expect(404);
     // The keyword table learns which pages were rewritten, and when.
