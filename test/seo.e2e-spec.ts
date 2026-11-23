@@ -171,6 +171,8 @@ describe('keywords from Search Console', () => {
     expect(res.seoTitle).toBeTruthy();
     const prompt = JSON.stringify(seen.filter((s) => s.url === 'gemini').at(-1)?.body);
     expect(prompt).toContain('Khách thật sự tìm trên Google');
+    // Always written in Vietnamese, the site translates it.
+    expect(prompt).toContain('Luôn viết tiêu đề và mô tả bằng tiếng Việt');
     expect(prompt).toContain('monarchy đà nẵng');
     // An editor without the right to write units cannot ask.
     await http().post('/api/v1/admin/seo/unit-suggest', { title: 'x y', listing: 'rent' }).expect(401);

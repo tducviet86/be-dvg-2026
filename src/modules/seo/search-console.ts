@@ -342,7 +342,7 @@ export class SearchConsoleController {
       context: [
         source.context,
         searches.length &&
-          `Khách thật sự tìm trên Google (Search Console 90 ngày, nhiều lượt hiển thị trước): ${searches.map((q) => `"${q}"`).join(', ')}. Chọn cụm khớp nhất với căn này (đúng dự án, đúng loại, đúng thuê hay bán) và đặt nguyên văn hoặc sát nghĩa ở đầu tiêu đề SEO; dùng các cụm khớp khác trong mô tả SEO và keywords một cách tự nhiên. Bỏ qua cụm không khớp với căn.`,
+          `Khách thật sự tìm trên Google (Search Console 90 ngày, nhiều lượt hiển thị trước): ${searches.map((q) => `"${q}"`).join(', ')}. Chọn cụm khớp nhất với căn này (đúng dự án, đúng loại, đúng thuê hay bán) và đặt nguyên văn hoặc sát nghĩa ở đầu tiêu đề SEO; dùng các cụm khớp khác trong mô tả SEO và keywords một cách tự nhiên. Bỏ qua cụm không khớp với căn. Luôn viết tiêu đề và mô tả bằng tiếng Việt (bản gốc; website tự dịch sang tiếng Anh, Hàn, Trung): cụm tìm kiếm bằng tiếng nước ngoài thì dùng cụm tiếng Việt cùng nghĩa, ví dụ "monarchy apartment for rent" → "cho thuê căn hộ Monarchy".`,
       ]
         .filter(Boolean)
         .join('\n'),
