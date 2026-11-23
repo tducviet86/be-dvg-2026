@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service.js';
+import { untranslated } from '../src/modules/i18n/i18n.service.js';
 import { createApp, createUser, login, resetDb } from './helpers.js';
 
 /** Stand-in for the Gemini API (no network, no cost). */
@@ -157,6 +158,12 @@ describe('AI SEO suggestions', () => {
 });
 
 describe('website translation', () => {
+  it('accepts legal document numbers kept as written, not Vietnamese text', () => {
+    expect(untranslated('뜨엉 2023년 주택법 및 시행령 95/2024/NĐ-CP에 따른 규정')).toBe(false);
+    expect(untranslated('参考：2023年住房法、第95/2024/NĐ-CP号法令')).toBe(false);
+    expect(untranslated('Nguồn tham khảo: Nghị định 95/2024/NĐ-CP')).toBe(true);
+  });
+
   const secret = { 'x-revalidate-secret': process.env.REVALIDATE_SECRET! };
   const texts = ['Căn hộ cho thuê', 'Tìm căn hộ', '0911 29 69 79', '  Căn hộ   cho thuê '];
   const translate = (body: object, headers: Record<string, string> = secret) =>

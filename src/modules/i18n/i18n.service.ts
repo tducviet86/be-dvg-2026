@@ -43,8 +43,11 @@ const VIETNAMESE = /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽ
 const BRAND = /Đất Vàng|ĐẤT VÀNG/g;
 /** The đồng sign after an amount ("25.000.000 đ", "25tr đ/tháng") is not Vietnamese text. */
 const DONG = /(\d)\s*đ(?![a-zà-ỹ])/gi;
+/** Numbers of Vietnamese legal documents ("95/2024/NĐ-CP") are kept as written. */
+const LEGAL_NUMBER = /\d+\/\d{4}\/[A-ZĐ]+(?:-[A-ZĐ]+)*/g;
 /** A model sometimes echoes the source: such answers are dropped and retried later. */
-export const untranslated = (text: string) => VIETNAMESE.test(text.replace(BRAND, '').replace(DONG, '$1'));
+export const untranslated = (text: string) =>
+  VIETNAMESE.test(text.replace(BRAND, '').replace(DONG, '$1').replace(LEGAL_NUMBER, ''));
 const normalise = (text: string) => text.replace(/\s+/g, ' ').trim();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
