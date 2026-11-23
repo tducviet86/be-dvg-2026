@@ -110,10 +110,19 @@ export class SearchConsoleService {
   }
 }
 
+/**
+ * Pages whose title is written in the website's code (home, list pages):
+ * a title chosen here is kept in the setting "seo.pages" ({ path: { seoTitle,
+ * seoDescription } }, "" being the home page) and used instead.
+ */
+export const FIXED_PAGES = ['', 'cho-thue', 'mua-ban', 'du-an', 'du-an/trien-khai', 'du-an/van-hanh', 'ban-do', 'blog', 'dich-vu'];
+
 /** A page of the site, from a URL Search Console reports. */
 export type Target =
-  | { kind: 'property' | 'project'; id: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string }
-  | { kind: 'landing'; purpose: 'rent' | 'sale'; slug: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string };
+  | { kind: 'property' | 'project' | 'post' | 'page'; id: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string }
+  | { kind: 'landing'; purpose: 'rent' | 'sale'; slug: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string }
+  | { kind: 'fixed'; slug: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string };
+type FixedSeo = Record<string, { seoTitle: string; seoDescription: string }>;
 
 class KeywordsQuery {
   @IsOptional() @Type(() => Number) @IsIn([7, 28, 90]) days: 7 | 28 | 90 = 28;
@@ -121,9 +130,12 @@ class KeywordsQuery {
 class SuggestDto {
   @Clean() @IsString() @MinLength(2) @MaxLength(200) query: string;
   @IsString() @MaxLength(500) page: string;
+  /** The page's <title> and description as served now (read by Admin). */
+  @IsOptional() @Clean() @IsString() @MaxLength(300) title?: string;
+  @IsOptional() @Clean() @IsString() @MaxLength(500) description?: string;
 }
 class ApplyDto {
-  @IsIn(['property', 'project', 'landing']) kind: 'property' | 'project' | 'landing';
+  @IsIn(['property', 'project', 'post', 'page', 'landing', 'fixed']) kind: 'property' | 'project' | 'post' | 'page' | 'landing' | 'fixed';
   @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsIn(['rent', 'sale']) purpose?: 'rent' | 'sale';
   @IsOptional() @IsString() @MaxLength(80) slug?: string;
@@ -167,21 +179,36 @@ export class SearchConsoleController {
       select: { entityType: true, entityId: true, changes: true, createdAt: true },
     });
     const ids = (type: string) => logs.filter((l) => l.entityType === type && l.entityId).map((l) => l.entityId!);
-    const [projects, properties] = await Promise.all([
+    const [projects, properties, posts, pages] = await Promise.all([
       this.prisma.project.findMany({ where: { id: { in: ids('project') } }, select: { id: true, slug: true } }),
       this.prisma.property.findMany({ where: { id: { in: ids('property') } }, select: { id: true, slug: true } }),
+      this.prisma.blogPost.findMany({ where: { id: { in: ids('post') } }, select: { id: true, slug: true } }),
+      this.prisma.staticPage.findMany({ where: { id: { in: ids('page') } }, select: { id: true, path: true } }),
     ]);
-    const slugs = new Map([...projects, ...properties].map((x) => [x.id, x.slug]));
+    const slugs = new Map([
+      ...[...projects, ...properties, ...posts].map((x) => [x.id, x.slug] as const),
+      // The table matches the last part of the address: "dich-vu/x" → "x".
+      ...pages.map((x) => [x.id, x.path.split('/').at(-1)!] as const),
+    ]);
     const out: Record<string, string> = {};
     for (const l of logs) {
       const slug = l.entityId ? slugs.get(l.entityId) : (l.changes as { slug?: string } | null)?.slug;
-      if (slug) out[slug] = l.createdAt.toISOString();
+      if (slug !== undefined) out[slug] = l.createdAt.toISOString();
     }
     return out;
   }
 
+  private async fixedSeo(): Promise<FixedSeo> {
+    const row = await this.prisma.siteSetting.findUnique({ where: { key: 'seo.pages' } });
+    try {
+      return row?.value ? (JSON.parse(String(row.value)) as FixedSeo) : {};
+    } catch {
+      return {};
+    }
+  }
+
   /** The page a URL shows, with what an AI proposal needs and can change. */
-  private async target(page: string): Promise<Target> {
+  private async target(page: string, current: { title?: string; description?: string } = {}): Promise<Target> {
     let path: string;
     try {
       path = new URL(page, 'https://x.invalid').pathname;
@@ -210,7 +237,24 @@ export class SearchConsoleController {
       if (!u) throw notFound('Không tìm thấy căn hộ của trang này.');
       return { kind: 'property', id: u.id, title: u.name, seoTitle: u.seoTitle, seoDescription: u.seoDescription, text: `${u.location}\n${u.description}` };
     }
-    throw badRequest('Trang này chưa hỗ trợ gợi ý tự động (chỉ trang căn hộ, dự án và trang theo nhu cầu).');
+    if (a === 'blog' && b && !c) {
+      const post = await this.prisma.blogPost.findFirst({ where: { slug: b, deletedAt: null }, select: { id: true, title: true, seoTitle: true, seoDescription: true, excerpt: true, content: true } });
+      if (!post) throw notFound('Không tìm thấy bài viết của trang này.');
+      return { kind: 'post', id: post.id, title: post.title, seoTitle: post.seoTitle, seoDescription: post.seoDescription, text: `${post.excerpt}\n${post.content}` };
+    }
+    const where = parts.join('/');
+    if (FIXED_PAGES.includes(where)) {
+      const own = (await this.fixedSeo())[where];
+      const title = current.title?.replace(/\s*\|\s*Đất Vàng Group\s*$/i, '') || (where ? `/${where}` : 'Trang chủ');
+      return { kind: 'fixed', slug: where, title, seoTitle: own?.seoTitle ?? null, seoDescription: own?.seoDescription ?? null, text: current.description ?? '' };
+    }
+    // Company pages, services (dich-vu/…), a project's product pages…
+    const sp = await this.prisma.staticPage.findFirst({ where: { path: where }, select: { id: true, title: true, seoTitle: true, seoDescription: true, intro: true, sections: true } });
+    if (sp) {
+      const sections = (Array.isArray(sp.sections) ? sp.sections : []) as { heading?: string; body?: string }[];
+      return { kind: 'page', id: sp.id, title: sp.title, seoTitle: sp.seoTitle, seoDescription: sp.seoDescription, text: [sp.intro, ...sections.map((x) => `${x.heading ?? ''}\n${x.body ?? ''}`)].join('\n') };
+    }
+    throw badRequest('Trang này chưa hỗ trợ gợi ý tự động.');
   }
 
   /** Proposes a title and description that answer the search. Nothing is saved. */
@@ -219,9 +263,9 @@ export class SearchConsoleController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @RequirePermissions(PERMISSIONS.settingsWrite)
   async suggest(@Body() dto: SuggestDto, @CurrentUser() user: AuthUser) {
-    const target = await this.target(dto.page);
+    const target = await this.target(dto.page, dto);
     const suggestion = await this.ai.suggestSeo({
-      kind: target.kind === 'landing' ? 'page' : target.kind,
+      kind: target.kind === 'landing' || target.kind === 'fixed' ? 'page' : target.kind,
       title: target.title,
       summary: target.seoDescription ?? undefined,
       content: target.text.slice(0, 8000),
@@ -246,17 +290,29 @@ export class SearchConsoleController {
       list[i] = { ...list[i], ...seo };
       await this.prisma.siteSetting.update({ where: { key: 'seo.landings' }, data: { value: JSON.stringify(list) } });
       await this.revalidation.trigger('settings');
+    } else if (dto.kind === 'fixed') {
+      const path = dto.slug ?? '';
+      if (!FIXED_PAGES.includes(path)) throw notFound('Không tìm thấy trang này.');
+      const value = JSON.stringify({ ...(await this.fixedSeo()), [path]: seo });
+      await this.prisma.siteSetting.upsert({ where: { key: 'seo.pages' }, create: { key: 'seo.pages', value, isPublic: true }, update: { value, isPublic: true } });
+      await this.revalidation.trigger('settings');
     } else {
       if (!dto.id) throw badRequest('Thiếu mã trang.');
       const where = { id: dto.id, deletedAt: null };
       const found =
         dto.kind === 'project'
           ? await this.prisma.project.updateMany({ where, data: seo })
-          : await this.prisma.property.updateMany({ where, data: seo });
+          : dto.kind === 'property'
+            ? await this.prisma.property.updateMany({ where, data: seo })
+            : dto.kind === 'post'
+              ? await this.prisma.blogPost.updateMany({ where, data: seo })
+              : await this.prisma.staticPage.updateMany({ where: { id: dto.id }, data: seo });
       if (!found.count) throw notFound();
-      await this.revalidation.trigger('projects', 'properties');
+      await this.revalidation.trigger(dto.kind === 'post' ? 'blog' : dto.kind === 'page' ? 'pages' : dto.kind === 'project' ? 'projects' : 'properties');
     }
-    await this.audit.log({ actorId: user.id, action: 'seo.keyword_apply', entityType: dto.kind, entityId: dto.id, changes: dto.kind === 'landing' ? { ...seo, slug: dto.slug, purpose: dto.purpose } : seo });
+    // The table matches pages by the last part of their address ("" = home).
+    const slug = dto.kind === 'fixed' ? (dto.slug ?? '').split('/').at(-1) : dto.slug;
+    await this.audit.log({ actorId: user.id, action: 'seo.keyword_apply', entityType: dto.kind, entityId: dto.id, changes: dto.kind === 'landing' ? { ...seo, slug: dto.slug, purpose: dto.purpose } : dto.kind === 'fixed' ? { ...seo, slug } : seo });
     return { data: { ok: true } };
   }
 }

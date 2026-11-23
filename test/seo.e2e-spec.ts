@@ -168,9 +168,32 @@ describe('keywords from Search Console', () => {
     await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'landing', purpose: 'rent', slug: 'can-ho-2pn', ...onLanding.suggestion }).expect(200);
     const stored = JSON.parse((await prisma.siteSetting.findUniqueOrThrow({ where: { key: 'seo.landings' } })).value as string);
     expect(stored[0]).toMatchObject({ slug: 'can-ho-2pn', seoTitle: onLanding.suggestion.seoTitle, h1: landing.h1 });
-    await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'x y', page: 'https://dvg.test/blog' }).expect(400);
+    await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'x y', page: 'https://dvg.test/khong-co-trang' }).expect(400);
+    // A blog post, a service page and a page whose title is in the website's
+    // code (home, /mua-ban…) can be rewritten too.
+    const category = await prisma.blogCategory.create({ data: { slug: 'thi-truong', name: 'Thị trường' } });
+    const post = await prisma.blogPost.create({ data: { categoryId: category.id, slug: 'thi-truong-2026', title: 'Thị trường 2026', excerpt: 'Nhìn lại thị trường.', content: 'Giá thuê tăng.', status: 'PUBLISHED', publishedAt: new Date() } });
+    const onPost = (await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'bất động sản đà nẵng 2026', page: 'https://dvg.test/blog/thi-truong-2026' }).expect(200)).body.data;
+    expect(onPost.target).toMatchObject({ kind: 'post', id: post.id });
+    await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'post', id: post.id, ...onPost.suggestion }).expect(200);
+    expect((await prisma.blogPost.findUniqueOrThrow({ where: { id: post.id } })).seoTitle).toBe(onPost.suggestion.seoTitle);
+    const service = await prisma.staticPage.create({ data: { path: 'dich-vu/quan-ly', kind: 'SERVICE', title: 'Quản lý bất động sản', intro: 'Quản lý căn hộ cho chủ nhà.', status: 'PUBLISHED' } });
+    const onService = (await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'real estate management', page: 'https://dvg.test/en/dich-vu/quan-ly' }).expect(200)).body.data;
+    expect(onService.target).toMatchObject({ kind: 'page', id: service.id });
+    await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'page', id: service.id, ...onService.suggestion }).expect(200);
+    expect((await prisma.staticPage.findUniqueOrThrow({ where: { id: service.id } })).seoDescription).toBe(onService.suggestion.seoDescription);
+    for (const [url, slug] of [['https://dvg.test/ko/mua-ban', 'mua-ban'], ['https://dvg.test/', '']]) {
+      const onFixed = (await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'căn hộ đà nẵng', page: url, title: 'Mua bán căn hộ Đà Nẵng | Đất Vàng Group', description: 'Căn hộ đang bán.' }).expect(200)).body.data;
+      expect(onFixed.target).toMatchObject({ kind: 'fixed', slug });
+      await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'fixed', slug, ...onFixed.suggestion }).expect(200);
+    }
+    const fixed = JSON.parse((await prisma.siteSetting.findUniqueOrThrow({ where: { key: 'seo.pages' } })).value as string);
+    expect(Object.keys(fixed).sort()).toEqual(['', 'mua-ban']);
+    expect((await http().get('/api/v1/settings/public').expect(200)).body.data['seo.pages']).toBeTruthy();
+    // Only the known pages are stored.
+    await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'fixed', slug: 'lung-tung', ...onPost.suggestion }).expect(404);
     // The keyword table learns which pages were rewritten, and when.
     const after = (await admin.get('/api/v1/admin/seo/keywords?days=90').expect(200)).body.data;
-    expect(Object.keys(after.rewritten).sort()).toEqual(['can-ho-2pn', 'monarchy']);
+    expect(Object.keys(after.rewritten).sort()).toEqual(['', 'can-ho-2pn', 'monarchy', 'mua-ban', 'quan-ly', 'thi-truong-2026']);
   });
 });
