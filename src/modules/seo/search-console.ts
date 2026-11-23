@@ -124,6 +124,12 @@ export type Target =
   | { kind: 'fixed'; slug: string; title: string; seoTitle: string | null; seoDescription: string | null; text: string };
 type FixedSeo = Record<string, { seoTitle: string; seoDescription: string }>;
 
+/** Lowercase words without accents: "Căn hộ Sun Symphony" → ["can", "ho", "sun", "symphony"]. */
+const words = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/** Words of a project's name that say nothing about which project it is. */
+const COMMON = new Set(['sun', 'the', 'residence', 'residences', 'tower', 'towers', 'apartment', 'apartments', 'garden', 'city', 'can', 'ho', 'du', 'an', 'da', 'nang', 'danang']);
+
 class KeywordsQuery {
   @IsOptional() @Type(() => Number) @IsIn([7, 28, 90]) days: 7 | 28 | 90 = 28;
 }
@@ -207,6 +213,17 @@ export class SearchConsoleController {
     }
   }
 
+  /** The slug of the one project whose distinctive name words a search uses. */
+  private async projectNamedIn(query: string): Promise<string | null> {
+    const asked = new Set(words(query));
+    const projects = await this.prisma.project.findMany({ where: { deletedAt: null, status: 'PUBLISHED' }, select: { slug: true, name: true } });
+    const scored = projects
+      .map((p) => ({ slug: p.slug, hits: words(p.name).filter((w) => w.length >= 3 && !COMMON.has(w) && asked.has(w)).length }))
+      .filter((p) => p.hits > 0)
+      .sort((a, b) => b.hits - a.hits);
+    return scored.length && (scored.length === 1 || scored[0].hits > scored[1].hits) ? scored[0].slug : null;
+  }
+
   /** The page a URL shows, with what an AI proposal needs and can change. */
   private async target(page: string, current: { title?: string; description?: string } = {}): Promise<Target> {
     let path: string;
@@ -263,7 +280,18 @@ export class SearchConsoleController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @RequirePermissions(PERMISSIONS.settingsWrite)
   async suggest(@Body() dto: SuggestDto, @CurrentUser() user: AuthUser) {
-    const target = await this.target(dto.page, dto);
+    let target = await this.target(dto.page, dto);
+    // Google shows the home page (or a list page) for a search naming a
+    // project: rewrite that project's page, so Google picks it instead,
+    // rather than give the home page one project's title.
+    let instead: { from: string; path: string } | undefined;
+    if (target.kind === 'fixed') {
+      const project = await this.projectNamedIn(dto.query);
+      if (project) {
+        instead = { from: `/${target.slug}`, path: `/du-an/${project}` };
+        target = await this.target(instead.path);
+      }
+    }
     const suggestion = await this.ai.suggestSeo({
       kind: target.kind === 'landing' || target.kind === 'fixed' ? 'page' : target.kind,
       title: target.title,
@@ -273,7 +301,7 @@ export class SearchConsoleController {
     });
     await this.audit.log({ actorId: user.id, action: 'ai.keyword_suggest', entityType: target.kind, changes: { query: dto.query, page: dto.page } });
     const { text: _text, ...page } = target;
-    return { data: { target: page, suggestion: { seoTitle: suggestion.seoTitle, seoDescription: suggestion.seoDescription } } };
+    return { data: { target: { ...page, instead }, suggestion: { seoTitle: suggestion.seoTitle, seoDescription: suggestion.seoDescription } } };
   }
 
   /** Writes the accepted title and description to the page. */

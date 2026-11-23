@@ -187,6 +187,10 @@ describe('keywords from Search Console', () => {
       expect(onFixed.target).toMatchObject({ kind: 'fixed', slug });
       await admin.post('/api/v1/admin/seo/keywords/apply', { kind: 'fixed', slug, ...onFixed.suggestion }).expect(200);
     }
+    // A search naming a project, shown on the home page: the project's page
+    // is rewritten, not the home page.
+    const named = (await admin.post('/api/v1/admin/seo/keywords/suggest', { query: 'căn hộ monarchy đà nẵng', page: 'https://dvg.test/' }).expect(200)).body.data;
+    expect(named.target).toMatchObject({ kind: 'project', id: project.id, instead: { from: '/', path: '/du-an/monarchy' } });
     const fixed = JSON.parse((await prisma.siteSetting.findUniqueOrThrow({ where: { key: 'seo.pages' } })).value as string);
     expect(Object.keys(fixed).sort()).toEqual(['', 'mua-ban']);
     expect((await http().get('/api/v1/settings/public').expect(200)).body.data['seo.pages']).toBeTruthy();
