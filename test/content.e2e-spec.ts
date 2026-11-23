@@ -318,6 +318,27 @@ describe('blog', () => {
 });
 
 describe('properties', () => {
+  it('a townhouse or premises can stand outside any project, with its own place on the map', async () => {
+    const base = { name: 'Nhà phố Euro Village', propertyType: 'nha-pho', location: 'Euro Village, Sơn Trà, Đà Nẵng', areaM2: 100, bedrooms: 3, bathrooms: 3, description: 'Nhà phố trong khu Euro Village.', rentPriceVnd: '30000000', status: 'PUBLISHED' };
+    // No project and no place: refused; an apartment always needs a project.
+    await admin.post('/api/v1/admin/properties', base).expect(400);
+    await admin.post('/api/v1/admin/properties', { ...base, latitude: 16.06 }).expect(400);
+    await admin.post('/api/v1/admin/properties', { ...base, propertyType: '2pn', latitude: 16.06, longitude: 108.24 }).expect(400);
+    const made = await admin.post('/api/v1/admin/properties', { ...base, slug: 'nha-pho-euro', latitude: 16.0612, longitude: 108.2401 }).expect(201);
+    expect(made.body.data).toMatchObject({ project: null, projectId: null, latitude: 16.0612, longitude: 108.2401 });
+    // Shown on the site, its page and the sitemap like any unit.
+    const list = (await http().get('/api/v1/properties?listing=rent').expect(200)).body.data;
+    const slug = made.body.data.slug;
+    expect(list.map((u: { slug: string }) => u.slug)).toContain(slug);
+    expect((await http().get(`/api/v1/properties/${slug}`).expect(200)).body.data.project).toBeNull();
+    expect(JSON.stringify((await http().get('/api/v1/sitemap').expect(200)).body)).toContain(slug);
+    // Taking the place away is refused; it keeps standing on its own.
+    const id = made.body.data.id;
+    await admin.patch(`/api/v1/admin/properties/${id}`, { latitude: null, longitude: null }).expect(400);
+    await admin.patch(`/api/v1/admin/properties/${id}`, { propertyType: '2pn' }).expect(400);
+    await admin.patch(`/api/v1/admin/properties/${id}`, { name: 'Nhà phố Euro Village 2' }).expect(200);
+  });
+
   it('filters published units and keeps demo units out of the sitemap', async () => {
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const type = await prisma.propertyType.findUniqueOrThrow({ where: { code: '2pn' } });

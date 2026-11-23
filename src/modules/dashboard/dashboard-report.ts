@@ -329,7 +329,7 @@ type Report = {
 };
 type Click = {
   createdAt: Date; kind: string; source: string; path: string; target: string | null; propertyId: string | null;
-  property: { name: string; unitCode: string | null; project: { name: string } } | null;
+  property: { name: string; unitCode: string | null; project: { name: string } | null } | null;
 };
 const CLICK_KINDS: [key: string, label: string][] = [['call', 'Bấm gọi'], ['zalo', 'Bấm Zalo'], ['whatsapp', 'Bấm WhatsApp']];
 
@@ -734,7 +734,7 @@ function clickSheet(r: Report) {
     ws.addRow([
       // Excel shows the stored time as is: store the Vietnamese wall clock.
       new Date(c.createdAt.getTime() + 7 * 3_600_000), CLICK_KINDS.find(([k]) => k === c.kind)?.[1] ?? c.kind, c.target ?? '',
-      c.property ? `${c.property.name}${c.property.unitCode ? ` (${c.property.unitCode})` : ''}` : '', c.property?.project.name ?? '',
+      c.property ? `${c.property.name}${c.property.unitCode ? ` (${c.property.unitCode})` : ''}` : '', c.property?.project?.name ?? '',
       readablePath(c.path), sourceLabel(c.source),
     ]);
   if (!r.clicks.length) ws.addRow(['', 'Chưa có lượt bấm nào trong kỳ.']);

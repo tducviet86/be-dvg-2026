@@ -96,8 +96,7 @@ export class IndexNowService implements OnModuleDestroy {
         const slugs = [u.slug, ...(await oldSlugs('PROPERTY'))];
         return [
           ...slugs.flatMap((s) => [...(u.forRent ? [`/cho-thue/${s}`] : []), ...(u.forSale ? [`/mua-ban/${s}`] : [])]),
-          `/cho-thue/du-an/${u.project.slug}`,
-          `/du-an/${u.project.slug}`,
+          ...(u.project ? [`/cho-thue/du-an/${u.project.slug}`, `/du-an/${u.project.slug}`] : []),
           '/cho-thue',
         ];
       }

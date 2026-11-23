@@ -9,6 +9,8 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
+  IsLatitude,
+  IsLongitude,
   IsNumber,
   IsOptional,
   IsString,
@@ -36,7 +38,8 @@ export class CreatePropertyDto {
   /** Left out: made from the name (plus the unit code when already taken). */
   @IsOptional() @IsString() @Matches(SLUG_PATTERN, { message: 'Đường dẫn không hợp lệ.' }) @MaxLength(160) slug?: string;
   @Clean() @IsString() @MinLength(2) @MaxLength(160) name: string;
-  @IsUUID() projectId: string;
+  /** Left empty only for a townhouse or premises, with latitude / longitude. */
+  @IsOptional() @IsUUID() projectId?: string | null;
   @IsString() propertyType: string; // code
   @IsOptional() @Clean() @IsString() @MaxLength(40) unitCode?: string | null;
   @IsOptional() @IsBoolean() forRent?: boolean;
@@ -47,6 +50,8 @@ export class CreatePropertyDto {
   @IsOptional() @IsBoolean() isDemo?: boolean;
   @Clean() @IsString() @MinLength(2) @MaxLength(160) location: string;
   @IsOptional() @Clean() @IsString() @MaxLength(300) address?: string | null;
+  @IsOptional() @IsLatitude() latitude?: number | null;
+  @IsOptional() @IsLongitude() longitude?: number | null;
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(1) @Max(100000) areaM2: number;
   @Type(() => Number) @IsInt() @Min(0) @Max(50) bedrooms: number;
   @Type(() => Number) @IsInt() @Min(0) @Max(50) bathrooms: number;

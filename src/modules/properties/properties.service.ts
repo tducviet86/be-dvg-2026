@@ -48,6 +48,13 @@ export const hiddenTaken = (): Prisma.PropertyWhereInput => ({
   availability: { in: [...TAKEN] },
   availabilityChangedAt: { lt: hideCutoff() },
 });
+/**
+ * A unit is on the site when its project is (or it has none: a townhouse or
+ * premises outside any project).
+ */
+export const projectLive = (live: Prisma.ProjectWhereInput): Prisma.PropertyWhereInput => ({
+  OR: [{ projectId: null }, { project: live }],
+});
 const isHidden = (p: Pick<Row, 'availability' | 'availabilityChangedAt'>) =>
   (TAKEN as readonly string[]).includes(p.availability) && p.availabilityChangedAt < hideCutoff();
 const interestScore = (i?: Interest) => (i ? i.views + i.leads * LEAD_WEIGHT : 0);
@@ -61,7 +68,7 @@ function toPublic(p: Row, interest?: Interest) {
     id: p.id,
     slug: p.slug,
     name: p.name,
-    project: { id: p.project.id, slug: p.project.slug, name: p.project.name },
+    project: p.project ? { id: p.project.id, slug: p.project.slug, name: p.project.name } : null,
     propertyType: { code: p.propertyType.code, name: p.propertyType.name, group: p.propertyType.group },
     unitCode: p.unitCode,
     forRent: p.forRent,
@@ -73,6 +80,9 @@ function toPublic(p: Row, interest?: Interest) {
     isDemo: p.isDemo,
     location: p.location,
     address: p.address,
+    /** Its own place on the map; units of a project use the project's. */
+    latitude: decimal(p.latitude),
+    longitude: decimal(p.longitude),
     areaM2: decimal(p.areaM2)!,
     bedrooms: p.bedrooms,
     bathrooms: p.bathrooms,
@@ -195,13 +205,13 @@ export class PropertiesService {
   }
 
   async publicList(q: PublicPropertyQuery) {
-    const where: Prisma.PropertyWhereInput = { ...publishedWhere(), project: publishedWhere(), ...this.filters(q), NOT: hiddenTaken() };
+    const where: Prisma.PropertyWhereInput = { ...publishedWhere(), ...projectLive(publishedWhere()), ...this.filters(q), NOT: hiddenTaken() };
     if (q.project) where.project = { ...publishedWhere(), slug: q.project };
     const [rows, total, facets] = await Promise.all([
       this.prisma.property.findMany({ where, include, orderBy: orderBy(q.sort), skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       this.prisma.property.count({ where }),
       this.prisma.property.findMany({
-        where: { ...publishedWhere(), project: publishedWhere() },
+        where: { ...publishedWhere(), ...projectLive(publishedWhere()) },
         distinct: ['location'],
         select: { location: true },
         orderBy: { location: 'asc' },
@@ -216,7 +226,7 @@ export class PropertiesService {
     const live = (p: { status: string; deletedAt: Date | null; publishedAt: Date | null }) =>
       p.status === 'PUBLISHED' && !p.deletedAt && !!p.publishedAt && p.publishedAt <= new Date();
     if (row) {
-      if (live(row) && live(row.project)) return toPublic(row, (await this.interest([row.id])).get(row.id));
+      if (live(row) && (!row.project || live(row.project))) return toPublic(row, (await this.interest([row.id])).get(row.id));
       if (row.deletedAt || row.status === 'ARCHIVED') throw gone();
       throw notFound('Không tìm thấy căn hộ.');
     }
@@ -264,7 +274,7 @@ export class PropertiesService {
   async recordView(slug: string, userAgent = '', source = '', locale = '') {
     if (!userAgent || BOT.test(userAgent)) return;
     const row = await this.prisma.property.findFirst({
-      where: { slug, isDemo: false, ...publishedWhere(), project: publishedWhere() },
+      where: { slug, isDemo: false, ...publishedWhere(), ...projectLive(publishedWhere()) },
       select: { id: true },
     });
     if (!row) return;
@@ -363,6 +373,7 @@ export class PropertiesService {
     this.assertPublishRight(dto.status, undefined, user);
     const id = await this.prisma.$transaction(async (tx) => {
       const refs = await this.references(tx, dto);
+      await this.assertPlace(tx, { projectId: dto.projectId ?? null, propertyTypeId: refs.typeId!, latitude: dto.latitude ?? null, longitude: dto.longitude ?? null });
       const newId = randomUUID();
       const unitCode = dto.unitCode || (await this.autoUnitCode(tx, newId));
       const slug = await this.freeSlug(tx, dto.slug || dto.name, unitCode);
@@ -378,7 +389,7 @@ export class PropertiesService {
           bedrooms: dto.bedrooms,
           bathrooms: dto.bathrooms,
           description: dto.description,
-          projectId: dto.projectId,
+          projectId: dto.projectId ?? null,
           propertyTypeId: refs.typeId!,
           searchText: this.searchText(dto.name, unitCode, dto.location, refs.projectName),
           ...publishFields(dto.status ?? 'DRAFT'),
@@ -402,6 +413,13 @@ export class PropertiesService {
       assertFresh(existing.updatedAt, dto.expectedUpdatedAt);
       this.assertPublishRight(dto.status, existing.status, user);
       const refs = await this.references(tx, dto);
+      const pick = <T>(next: T | undefined, now: T) => (next === undefined ? now : next);
+      await this.assertPlace(tx, {
+        projectId: pick(dto.projectId, existing.projectId),
+        propertyTypeId: refs.typeId ?? existing.propertyTypeId,
+        latitude: pick(dto.latitude, decimal(existing.latitude)),
+        longitude: pick(dto.longitude, decimal(existing.longitude)),
+      });
       // An empty unit code gets one; slugs end with the unit code.
       const unitCode = (dto.unitCode === undefined ? existing.unitCode : dto.unitCode) || (await this.autoUnitCode(tx, id));
       const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, unitCode, id) : undefined;
@@ -420,7 +438,7 @@ export class PropertiesService {
           description: dto.description,
           projectId: dto.projectId,
           propertyTypeId: refs.typeId,
-          searchText: this.searchText(dto.name ?? existing.name, unitCode, dto.location ?? existing.location, refs.projectName ?? existing.project.name),
+          searchText: this.searchText(dto.name ?? existing.name, unitCode, dto.location ?? existing.location, dto.projectId === null ? undefined : (refs.projectName ?? existing.project?.name)),
           ...publishFields(dto.status, existing),
         },
       });
@@ -459,6 +477,21 @@ export class PropertiesService {
 
   private searchText(...parts: (string | null | undefined)[]) {
     return normalize(parts.filter(Boolean).join(' '));
+  }
+
+  /**
+   * Where a unit stands: in a project, or (a townhouse or premises only) on
+   * its own, with a place on the map.
+   */
+  private async assertPlace(
+    tx: Prisma.TransactionClient,
+    p: { projectId: string | null; propertyTypeId: string; latitude: number | null; longitude: number | null },
+  ) {
+    if ((p.latitude == null) !== (p.longitude == null)) throw badRequest('Cần nhập đủ cả vĩ độ và kinh độ.');
+    if (p.projectId) return;
+    const type = await tx.propertyType.findUnique({ where: { id: p.propertyTypeId }, select: { group: true } });
+    if (type?.group === 'apartment') throw badRequest('Căn hộ cần chọn dự án; chỉ nhà phố và mặt bằng được để trống dự án.');
+    if (p.latitude == null) throw badRequest('Căn không thuộc dự án cần vị trí trên bản đồ (vĩ độ và kinh độ).');
   }
 
   private async references(tx: Prisma.TransactionClient, dto: UpdatePropertyDto) {
@@ -515,6 +548,8 @@ export class PropertiesService {
       availability: dto.availability,
       isDemo: dto.isDemo,
       address: dto.address,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
       floor: dto.floor,
       direction: dto.direction,
       tower: dto.tower,
