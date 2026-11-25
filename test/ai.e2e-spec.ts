@@ -273,6 +273,31 @@ describe('website translation', () => {
       expect((await prisma.translation.findFirstOrThrow({ where: { locale, source } })).text).toBe(expected);
   });
 
+  it('thousands of "tỷ" are trillions, in new translations and in stored ones', async () => {
+    for (const [locale, rule] of [
+      ['en', '10.750 tỷ → 10.75 trillion VND'],
+      ['ko', '10.750 tỷ → 10조 7,500억 동'],
+      ['zh', '10.750 tỷ → 10.75万亿越南盾'],
+    ]) {
+      await translate({ locale, texts: ['Vốn 1.234 tỷ kiểm tra'] }).expect(200);
+      expect(lastRequest.body.system_instruction).toContain(rule);
+    }
+    const rows = [
+      ['zh', 'Gần 10.750 tỷ đồng kiểm tra', '近10.750十亿越南盾', '近10.75万亿越南盾'],
+      ['zh', 'Đầu tư 10.500 tỷ kiểm tra', '投资10.500十亿越南盾', '投资10.5万亿越南盾'],
+      ['zh', 'Vốn 7.359 tỷ kiểm tra', '总资金达7.359十亿越南盾', '总资金达7.359万亿越南盾'],
+      ['zh', 'Giá 4,35 tỷ kiểm tra', '4.35十亿越南盾', '4.35十亿越南盾'],
+      ['en', 'Gần 10.750 tỷ đồng kiểm tra', 'nearly 10.750 billion VND', 'nearly 10.75 trillion VND'],
+      ['en', 'Vốn 10.750 tỷ kiểm tra', '10,750 billion VND', '10,750 billion VND'],
+    ];
+    await prisma.translation.createMany({
+      data: rows.map(([locale, source, text]) => ({ locale, source, text, sourceHash: createHash('sha256').update(source).digest('hex') })),
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261125120000_trillion_translations/migration.sql', 'utf8'));
+    for (const [locale, source, , expected] of rows)
+      expect((await prisma.translation.findFirstOrThrow({ where: { locale, source } })).text).toBe(expected);
+  });
+
   it('Korean and Chinese are never kept as pinyin, unaccented Vietnamese or English', async () => {
     const broken = [
       'Han jiang yan an fang di chan',
