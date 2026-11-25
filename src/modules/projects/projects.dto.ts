@@ -64,6 +64,9 @@ export class TowerDto {
 export class ProjectPhotoDto {
   @IsIn(['Phối cảnh', 'Căn hộ mẫu', 'Căn 1 phòng ngủ', 'Căn 2 phòng ngủ', 'Căn 3 phòng ngủ', 'Tiện ích']) group: string;
   @IsString() @MinLength(1) @MaxLength(1000) image: string;
+  /** An amenity's name and a line about it, for its card on the page. */
+  @IsOptional() @Clean() @IsString() @MaxLength(80) title?: string;
+  @IsOptional() @Clean() @IsString() @MaxLength(200) note?: string;
 }
 export class SalesPolicyDto {
   @Clean() @IsString() @MinLength(2) @MaxLength(160) title: string;
