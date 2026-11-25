@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service.js';
-import { untranslated } from '../src/modules/i18n/i18n.service.js';
+import { romanised, untranslated } from '../src/modules/i18n/i18n.service.js';
 import { createApp, createUser, login, resetDb } from './helpers.js';
 
 /** Stand-in for the Gemini API (no network, no cost). */
@@ -251,6 +253,52 @@ describe('website translation', () => {
     reply = answer({ items: [{ i: 0, t: 'Giá thuê 30.000.000 đ' }] });
     expect((await translate({ locale: 'ko', texts: ['Giá thuê 30.000.000 đ'] }).expect(200)).body.data.translations).toEqual({});
     expect(lastRequest.body.system_instruction).toContain('"đ" after an amount → "동"');
+  });
+
+  it('the Hàn river has one Chinese name, in new translations and in stored ones', async () => {
+    await translate({ locale: 'zh', texts: ['View sông Hàn kiểm tra'] }).expect(200);
+    expect(lastRequest.body.system_instruction).toContain('"sông Hàn" → "瀚江"');
+    const rows = [
+      ['zh', 'Cầu Sông Hàn kiểm tra', '韩江大桥', '瀚江大桥'],
+      ['zh', 'Ven sông Hàn, bờ Đông sông Hàn kiểm tra', '汉江畔，翰江东岸', '瀚江畔，瀚江东岸'],
+      ['zh', 'Bên sông Hàn kiểm tra', '位于 Han江畔', '位于 瀚江畔'],
+      ['zh', 'Căn hộ kiểm tra', '公寓', '公寓'],
+      ['ko', 'Sông Hàn kiểm tra', '한강 汉江', '한강 汉江'],
+    ];
+    await prisma.translation.createMany({
+      data: rows.map(([locale, source, text]) => ({ locale, source, text, sourceHash: createHash('sha256').update(source).digest('hex') })),
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261125090000_han_river_zh/migration.sql', 'utf8'));
+    for (const [locale, source, , expected] of rows)
+      expect((await prisma.translation.findFirstOrThrow({ where: { locale, source } })).text).toBe(expected);
+  });
+
+  it('Korean and Chinese are never kept as pinyin, unaccented Vietnamese or English', async () => {
+    const broken = [
+      'Han jiang yan an fang di chan',
+      'Sun Group 岘港 Han jiang yan an Sun Galaxy Complex',
+      'Bon toa, bon mua',
+      'Đất Vàng Group currently has 5 available apartments out of 6',
+    ];
+    const fine = ['位于 Tran Hung Dao 街', 'The Monarchy 全配家具公寓', '公寓 view 江 wifi', 'Azura Da Nang, Sun Ponte Residence', 'www.datvanggroup.vn/cho-thue/can-ho'];
+    for (const text of broken) expect(romanised('zh', text), text).toBe(true);
+    for (const text of fine) expect(romanised('zh', text), text).toBe(false);
+    expect(romanised('en', broken[0])).toBe(false);
+    expect(romanised('ko', 'gym, spa, yoga', 'gym, spa, yoga')).toBe(false);
+    // Such an answer is dropped and asked for again later.
+    reply = answer({ items: [{ i: 0, t: broken[0] }] });
+    expect((await translate({ locale: 'zh', texts: ['Đất ven sông kiểm tra'] }).expect(200)).body.data.translations).toEqual({});
+    // Stored ones go away, so they are translated again; staff corrections stay.
+    const rows = [...broken, ...fine].map((text, i) => ({ locale: 'zh', source: `Câu kiểm tra ${i}`, text, reviewed: false }));
+    rows.push({ locale: 'ko', source: 'Câu kiểm tra đã duyệt', text: broken[2], reviewed: true });
+    rows.push({ locale: 'ko', source: 'gym, spa, yoga', text: 'gym, spa, yoga', reviewed: false });
+    rows.push({ locale: 'en', source: 'Câu kiểm tra tiếng Anh', text: broken[3], reviewed: false });
+    await prisma.translation.createMany({
+      data: rows.map((r) => ({ ...r, sourceHash: createHash('sha256').update(r.source).digest('hex') })),
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261125091000_romanised_translations/migration.sql', 'utf8'));
+    const left = await prisma.translation.findMany({ where: { source: { in: rows.map((r) => r.source) } } });
+    expect(left.map((r) => r.text).sort()).toEqual(rows.slice(broken.length).map((r) => r.text).sort());
   });
 
   it('leaves text untranslated when Gemini fails and rejects bad input', async () => {

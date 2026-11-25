@@ -19,7 +19,7 @@ const LANGUAGE: Record<Locale, string> = {
 const GLOSSARY: Record<Locale, string> = {
   en: `"sổ đỏ" → "red book (land use right certificate)"; "Đà Nẵng" → "Da Nang"; "Sơn Trà" → "Son Tra"; "Hải Châu" → "Hai Chau"; "Ngũ Hành Sơn" → "Ngu Hanh Son"; "căn hộ" → "apartment"; "căn hộ dịch vụ" → "serviced apartment"; "phòng ngủ" → "bedroom"; "ký gửi" → "consignment"; "chủ đầu tư" → "developer"; "triệu" → "million VND" (7,5 triệu → 7.5 million VND); "tỷ" → "billion VND"; "đ" after an amount → "VND" (25.000.000 đ → 25,000,000 VND); "/ tháng" → "/ month"; "Còn trống" → "Available"; "Đã cho thuê" → "Leased"; "Căn mẫu" → "Sample unit".`,
   ko: `"sổ đỏ" → "레드북(토지사용권 증서)"; "Đà Nẵng" → "다낭"; "Sơn Trà" → "선짜"; "Hải Châu" → "하이쩌우"; "căn hộ" → "아파트"; "căn hộ dịch vụ" → "서비스드 아파트"; "phòng ngủ" → "침실"; "ký gửi" → "위탁"; "chủ đầu tư" → "개발사"; "triệu" → "백만 동" (7,5 triệu → 750만 동); "tỷ" → "십억 동"; "đ" after an amount → "동" (25.000.000 đ → 25.000.000동); "/ tháng" → "/월"; "Còn trống" → "입주 가능"; "Đã cho thuê" → "임대 완료"; "Căn mẫu" → "샘플 세대".`,
-  zh: `"sổ đỏ" → "红本（土地使用权证）"; "Đà Nẵng" → "岘港"; "Sơn Trà" → "山茶"; "Hải Châu" → "海洲"; "căn hộ" → "公寓"; "căn hộ dịch vụ" → "服务式公寓"; "phòng ngủ" → "卧室"; "ký gửi" → "委托"; "chủ đầu tư" → "开发商"; "triệu" → "百万越南盾" (7,5 triệu → 750万越南盾); "tỷ" → "十亿越南盾"; "đ" after an amount → "越南盾" (25.000.000 đ → 25.000.000越南盾); "/ tháng" → "/月"; "Còn trống" → "可租"; "Đã cho thuê" → "已出租"; "Căn mẫu" → "样板房".`,
+  zh: `"sổ đỏ" → "红本（土地使用权证）"; "Đà Nẵng" → "岘港"; "Sơn Trà" → "山茶"; "Hải Châu" → "海洲"; "sông Hàn" → "瀚江"; "căn hộ" → "公寓"; "căn hộ dịch vụ" → "服务式公寓"; "phòng ngủ" → "卧室"; "ký gửi" → "委托"; "chủ đầu tư" → "开发商"; "triệu" → "百万越南盾" (7,5 triệu → 750万越南盾); "tỷ" → "十亿越南盾"; "đ" after an amount → "越南盾" (25.000.000 đ → 25.000.000越南盾); "/ tháng" → "/月"; "Còn trống" → "可租"; "Đã cho thuê" → "已出租"; "Căn mẫu" → "样板房".`,
 };
 
 const system = (locale: Locale) => `You are a professional translator for the website of Đất Vàng Group, a real-estate company in Da Nang, Vietnam (projects, apartments for rent, property management).
@@ -28,6 +28,7 @@ Rules:
 - Translate the meaning precisely. Do not add, omit, summarise or embellish anything.
 - Keep these unchanged: brand and project names (Đất Vàng Group, Sun Panoma, The Monarchy, Sun Ponte Residence, Sam Tower, Hiyori Garden Tower, Capital Square, Cora Tower…), phone numbers, emails, URLs, unit codes, "m²".
 - Never output Vietnamese diacritics: write Vietnamese names that stay untranslated (streets, wards) without accents, e.g. "Trần Hưng Đạo" → "Tran Hung Dao". Only the brand "Đất Vàng Group" keeps its accents.
+- Write Korean in Hangul and Chinese in Simplified Chinese characters: never pinyin, romanised text or English sentences.
 - Keep placeholders in curly braces such as {n}, {title} or {field} exactly as written.
 - Numbers keep their exact value; convert Vietnamese decimal commas and money units correctly.
 - Keep the string's form: a button label stays a short label, an uppercase eyebrow stays uppercase (where the script allows), keep leading/trailing punctuation and symbols such as "·", "/", "→", "*".
@@ -48,6 +49,14 @@ const LEGAL_NUMBER = /\d+\/\d{4}\/[A-ZĐ]+(?:-[A-ZĐ]+)*/g;
 /** A model sometimes echoes the source: such answers are dropped and retried later. */
 export const untranslated = (text: string) =>
   VIETNAMESE.test(text.replace(BRAND, '').replace(DONG, '$1').replace(LEGAL_NUMBER, ''));
+/**
+ * Korean or Chinese answered in Latin letters (pinyin, Vietnamese without
+ * accents, English): three lowercase words in a row, unlike names. A source
+ * that is not Vietnamese comes back unchanged.
+ */
+const LATIN_RUN = /(?<![\p{L}\d_@./-])[a-z]+(?:[ ,]+[a-z]+){2,}(?![\p{L}\d_@./-])/u;
+export const romanised = (locale: Locale, text: string, source = '') =>
+  locale !== 'en' && text !== source && LATIN_RUN.test(text);
 const normalise = (text: string) => text.replace(/\s+/g, ' ').trim();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
@@ -279,7 +288,7 @@ export class I18nService {
     const texts: (string | null)[] = batch.map(() => null);
     for (const item of answer.items ?? []) {
       const t = typeof item.t === 'string' ? item.t.trim() : '';
-      if (Number.isInteger(item.i) && item.i! >= 0 && item.i! < batch.length && t && t.length <= 4000 && !untranslated(t))
+      if (Number.isInteger(item.i) && item.i! >= 0 && item.i! < batch.length && t && t.length <= 4000 && !untranslated(t) && !romanised(locale, t, batch[item.i!].source))
         texts[item.i!] = t;
     }
     const rows = batch.flatMap((item, i) =>
