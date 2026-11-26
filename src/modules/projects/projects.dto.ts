@@ -60,6 +60,8 @@ export class TowerDto {
   /** Only when it differs from the project's handover date. */
   @IsOptional() @Clean() @IsString() @MaxLength(80) handover?: string;
   @IsOptional() @Clean() @IsString() @MaxLength(200) note?: string;
+  /** Floors of the tower: a unit's floor shows as "tầng thấp / trung / cao" of it. */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(150) floors?: number;
 }
 export class ProjectPhotoDto {
   @IsIn(['Phối cảnh', 'Căn hộ mẫu', 'Căn 1 phòng ngủ', 'Căn 2 phòng ngủ', 'Căn 3 phòng ngủ', 'Tiện ích']) group: string;
@@ -113,6 +115,8 @@ export class CreateProjectDto {
   @IsUrl({ protocols: ['https'], require_protocol: true, host_whitelist: ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'fb.com'] }, { message: 'Nhập đường dẫn trang Facebook (https://www.facebook.com/…).' })
   facebookUrl?: string | null;
   @IsOptional() @Clean() @IsString() @MaxLength(200) mapLabel?: string | null;
+  /** Letters before its units' public codes ("MN" → "MN-95207"). */
+  @IsOptional() @Matches(/^[A-Z]{2,3}$/, { message: 'Mã viết tắt gồm 2–3 chữ in hoa, ví dụ MN.' }) codePrefix?: string | null;
   @IsOptional() @IsLatitude() latitude?: number | null;
   @IsOptional() @IsLongitude() longitude?: number | null;
   @IsOptional() @IsUUID() coverImageId?: string | null;

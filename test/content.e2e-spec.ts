@@ -1,11 +1,12 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 import { createServer, type Server } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import sharp from 'sharp';
 import type request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service.js';
+import { PropertiesService } from '../src/modules/properties/properties.service.js';
 import { createApp, createUser, externalMedia, login, resetDb } from './helpers.js';
 
 let app: NestExpressApplication;
@@ -174,10 +175,10 @@ describe('lead intake', () => {
       .expect(202);
     expect(await prisma.lead.count()).toBe(4);
     // A unit page: the unit and its project.
-    await admin.post('/api/v1/admin/properties', { slug: 'sun-ponte-a', unitCode: 'A', name: 'Căn hộ 2PN view sông', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED' }).expect(201);
+    const made = await admin.post('/api/v1/admin/properties', { slug: 'sun-ponte-a', unitCode: 'A', name: 'Căn hộ 2PN view sông', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED' }).expect(201);
     await http()
       .post('/api/v1/inquiries')
-      .send(form({ email: 'd@example.com', message: undefined, intent: 'Tìm thuê bất động sản', propertySlug: 'sun-ponte-a' }))
+      .send(form({ email: 'd@example.com', message: undefined, intent: 'Tìm thuê bất động sản', propertySlug: made.body.data.slug }))
       .expect(202);
     expect(await prisma.lead.findFirstOrThrow({ where: { email: 'd@example.com' } })).toMatchObject({
       projectId: project.id,
@@ -343,19 +344,21 @@ describe('properties', () => {
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const type = await prisma.propertyType.findUniqueOrThrow({ where: { code: '2pn' } });
     const unit = (slug: string, rent: string, extra = {}) => admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Sơn Trà, Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: rent, status: 'PUBLISHED', ...extra }).expect(201);
-    await unit('song-han-a', '15000000');
+    const a = (await unit('song-han-a', '15000000')).body.data.slug;
     await unit('song-han-b', '25000000', { isDemo: true });
     await unit('song-han-c', '9000000', { status: 'DRAFT' });
+    // Units are told apart by name ("Căn song-han-a"): slugs end with the public code.
+    const names = (body: { data: { name: string }[] }) => body.data.map((p) => p.name.slice(4));
     const cheap = await http().get('/api/v1/properties?maxRentVnd=20000000&project=monarchy').expect(200);
-    expect(cheap.body.data.map((p: { slug: string }) => p.slug)).toEqual(['song-han-a']);
+    expect(names(cheap.body)).toEqual(['song-han-a']);
     const search = await http().get(`/api/v1/properties?q=${encodeURIComponent('song han monarchy')}&sort=price-desc`).expect(200);
-    expect(search.body.data.map((p: { slug: string }) => p.slug)).toEqual(['song-han-b', 'song-han-a']);
-    expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug)).toEqual(['song-han-a']);
+    expect(names(search.body)).toEqual(['song-han-b', 'song-han-a']);
+    expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug)).toEqual([a]);
     expect(type.code).toBe('2pn');
     // Admin lists the unit created last first, even a draft with no publish date.
-    const adminList = (await admin.get('/api/v1/admin/properties').expect(200)).body.data.map((p: { slug: string }) => p.slug);
+    const adminList = names((await admin.get('/api/v1/admin/properties').expect(200)).body);
     expect(adminList.slice(0, 3)).toEqual(['song-han-c', 'song-han-b', 'song-han-a']);
-    const slugs = async (query: string) => (await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body.data.map((p: { slug: string }) => p.slug);
+    const slugs = async (query: string) => names((await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body);
     expect(await slugs('project=monarchy&sort=price-asc')).toEqual(['song-han-c', 'song-han-a', 'song-han-b']);
     expect(await slugs('project=monarchy&sort=name')).toEqual(['song-han-a', 'song-han-b', 'song-han-c']);
     expect(await slugs('project=monarchy&status=DRAFT')).toEqual(['song-han-c']);
@@ -398,25 +401,27 @@ describe('properties', () => {
     // Rented 6 days ago: past RENTED_HIDE_DAYS (5).
     await prisma.property.update({ where: { id: old.id }, data: { availabilityChangedAt: new Date(Date.now() - 6 * 86_400_000) } });
 
-    const site = async () => (await http().get('/api/v1/properties').expect(200)).body.data.map((p: { slug: string }) => p.slug).sort();
+    // Units are told apart by name ("Căn song-han-a"): slugs end with the public code.
+    const names = (body: { data: { name: string }[] }) => body.data.map((p) => p.name.slice(4)).sort();
+    const site = async () => names((await http().get('/api/v1/properties').expect(200)).body);
     expect(await site()).toEqual(['song-han-a', 'song-han-c']);
-    expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug).sort()).toEqual(['song-han-a', 'song-han-c']);
+    expect((await http().get('/api/v1/sitemap').expect(200)).body.data.properties.map((p: { slug: string }) => p.slug).sort()).toEqual([fresh.slug, free.slug].sort());
     // Its page still opens (old links), marked so it is not indexed.
-    const page = (await http().get('/api/v1/properties/song-han-b').expect(200)).body.data;
+    const page = (await http().get(`/api/v1/properties/${old.slug}`).expect(200)).body.data;
     expect(page).toMatchObject({ availability: 'RENTED', delisted: true });
-    expect((await http().get('/api/v1/properties/song-han-a').expect(200)).body.data.delisted).toBe(false);
+    expect((await http().get(`/api/v1/properties/${fresh.slug}`).expect(200)).body.data.delisted).toBe(false);
 
     // Admin: the default list leaves it to "Đã cho thuê"; a search still finds it.
-    const slugs = async (query = '') => (await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body.data.map((p: { slug: string }) => p.slug).sort();
+    const slugs = async (query = '') => names((await admin.get(`/api/v1/admin/properties?${query}`).expect(200)).body);
     expect(await slugs()).toEqual(['song-han-a', 'song-han-c']);
-    expect(await slugs('availability=RENTED')).toEqual(['song-han-a', 'song-han-b']);
-    expect(await slugs('q=song-han-b')).toEqual(['song-han-b']);
+    expect(await slugs('availability=RENTED')).toEqual(['song-han-a', 'song-han-b mới']);
+    expect(await slugs('q=song-han-b')).toEqual(['song-han-b mới']);
     const stats = (await admin.get('/api/v1/admin/properties/stats').expect(200)).body.data;
     expect(stats).toMatchObject({ total: 3, availability: { RENTED: 2, AVAILABLE: 1 }, delisted: 1, hideDays: 5 });
 
     // Free again: back on the site at once.
     await admin.patch(`/api/v1/admin/properties/${old.id}`, { availability: 'AVAILABLE' }).expect(200);
-    expect(await site()).toEqual(['song-han-a', 'song-han-b', 'song-han-c']);
+    expect(await site()).toEqual(['song-han-a', 'song-han-b mới', 'song-han-c']);
     expect(free.availability).toBe('AVAILABLE');
   });
 
@@ -429,8 +434,8 @@ describe('properties', () => {
     expect(types.find((t) => t.code === 'mat-bang')).toMatchObject({ name: 'Mặt bằng', group: 'premises' });
     expect(types.find((t) => t.code === 'van-phong')).toMatchObject({ name: 'Văn phòng', group: 'office' });
     const project = await prisma.project.create({ data: { slug: 'euro', name: 'Phúc Lộc Viên', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
-    await admin.post('/api/v1/admin/properties', { slug: 'mat-bang-a', unitCode: 'A', name: 'Mặt bằng mặt tiền', projectId: project.id, propertyType: 'mat-bang', location: 'Đà Nẵng', areaM2: 120, bedrooms: 0, bathrooms: 1, description: 'Mặt bằng kinh doanh mặt tiền.', rentPriceVnd: '30000000', status: 'PUBLISHED' }).expect(201);
-    const unit = (await http().get('/api/v1/properties/mat-bang-a').expect(200)).body.data;
+    const made = await admin.post('/api/v1/admin/properties', { slug: 'mat-bang-a', unitCode: 'A', name: 'Mặt bằng mặt tiền', projectId: project.id, propertyType: 'mat-bang', location: 'Đà Nẵng', areaM2: 120, bedrooms: 0, bathrooms: 1, description: 'Mặt bằng kinh doanh mặt tiền.', rentPriceVnd: '30000000', status: 'PUBLISHED' }).expect(201);
+    const unit = (await http().get(`/api/v1/properties/${made.body.data.slug}`).expect(200)).body.data;
     expect(unit.propertyType).toEqual({ code: 'mat-bang', name: 'Mặt bằng', group: 'premises' });
   });
 
@@ -439,52 +444,88 @@ describe('properties', () => {
     const base = { slug: 'phi-a', unitCode: 'A', name: 'Căn có phí', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', status: 'PUBLISHED' };
     await admin.post('/api/v1/admin/properties', { ...base, includedFees: ['water', 'wifi'] }).expect(400);
     const unit = (await admin.post('/api/v1/admin/properties', { ...base, includedFees: ['water', 'internet'] }).expect(201)).body.data;
-    expect((await http().get('/api/v1/properties/phi-a').expect(200)).body.data.includedFees).toEqual(['water', 'internet']);
+    expect((await http().get(`/api/v1/properties/${unit.slug}`).expect(200)).body.data.includedFees).toEqual(['water', 'internet']);
     await admin.patch(`/api/v1/admin/properties/${unit.id}`, { includedFees: [] }).expect(200);
-    expect((await http().get('/api/v1/properties/phi-a').expect(200)).body.data.includedFees).toEqual([]);
+    expect((await http().get(`/api/v1/properties/${unit.slug}`).expect(200)).body.data.includedFees).toEqual([]);
   });
 
-  it('makes the slug from the name and unit code, and the code when it is empty', async () => {
-    const project = await prisma.project.create({ data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.' } });
-    const base = { name: 'Căn 2PN view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.' };
+  it("visitors see neither a unit's real code nor its floor; Admin sees both", async () => {
+    const project = await prisma.project.create({
+      data: { slug: 'ponte', name: 'Sun Ponte', location: 'Đà Nẵng', intro: 'Giới thiệu dự án.', status: 'PUBLISHED', publishedAt: new Date(), codePrefix: 'SP', towers: [{ name: 'T1', floors: 24 }] },
+    });
+    const base = { name: 'Căn 2PN tầng 19 view sông Hàn', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, tower: 'T1', floor: 19, description: 'Căn 1905 nằm ở tầng 19 tòa T1, nhìn ra sông.', status: 'PUBLISHED' };
     const create = (extra = {}) => admin.post('/api/v1/admin/properties', { ...base, ...extra }).expect(201).then((r) => r.body.data);
-    const first = await create();
-    // No code typed: "DVG-" + the last 4 characters of the id, also ending the slug.
-    expect(first.unitCode).toBe(`DVG-${first.id.replace(/-/g, '').slice(-4).toUpperCase()}`);
-    expect(first.slug).toBe(`can-2pn-view-song-han-${first.unitCode.toLowerCase()}`);
-    // The admin list says who created and last changed each unit.
-    const admins = await prisma.user.findMany({ select: { name: true } });
-    expect(admins.map((u) => u.name)).toContain(first.createdBy);
-    expect(first.updatedBy).toBe(first.createdBy);
-    const seeded = (await admin.get('/api/v1/admin/properties?project=ponte').expect(200)).body.data[0];
-    expect(seeded.createdBy).toEqual(expect.any(String));
-    // The slug always ends with the unit code; the same code twice gets a number.
-    const second = await create({ unitCode: 'A-12.05' });
-    expect(second).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: 'A-12.05' });
-    const third = await create({ unitCode: 'A-12.05' });
-    expect(third.slug).toBe('can-2pn-view-song-han-a-12-05-2');
-    // A typed slug gets the code too.
-    const typed = await create({ slug: 'can-2pn-view-song-han', unitCode: 'B-03' });
-    expect(typed.slug).toBe('can-2pn-view-song-han-b-03');
-    // Saving with the code cleared gives the unit a code again; an unchanged slug stays.
-    const saved = await admin.patch(`/api/v1/admin/properties/${second.id}`, { unitCode: null }).expect(200);
-    expect(saved.body.data).toMatchObject({ slug: 'can-2pn-view-song-han-a-12-05', unitCode: `DVG-${second.id.replace(/-/g, '').slice(-4).toUpperCase()}` });
-    const renamed = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-2pn-view-song-han' }).expect(200);
-    expect(renamed.body.data.slug).toBe('can-2pn-view-song-han-b-03');
-    // A slug already ending with the code (as the editor sends it) keeps one code.
-    const moved = await admin.patch(`/api/v1/admin/properties/${typed.id}`, { slug: 'can-moi-b-03' }).expect(200);
-    expect(moved.body.data.slug).toBe('can-moi-b-03');
-    // Units saved before that get the code on deploy; the old link redirects.
-    await prisma.property.update({ where: { id: second.id }, data: { slug: 'can-cu-2pn', status: 'PUBLISHED', publishedAt: new Date() } });
-    await prisma.project.update({ where: { id: project.id }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
-    await prisma.property.update({ where: { id: third.id }, data: { slug: 'can-cu-khong-ma', unitCode: null } });
-    execFileSync('npx', ['tsx', 'scripts/unit-slug-codes.ts'], { env: process.env, stdio: 'pipe' });
-    const old = await http().get('/api/v1/properties/can-cu-2pn').redirects(0).expect(301);
-    expect(old.headers.location).toContain(`/properties/can-cu-2pn-${saved.body.data.unitCode.toLowerCase()}`);
-    const coded = (await prisma.property.findUniqueOrThrow({ where: { id: third.id } }));
-    expect(coded.slug).toBe(`can-cu-khong-ma-${coded.unitCode!.toLowerCase()}`);
-    // Run again: nothing left to change.
-    expect(execFileSync('npx', ['tsx', 'scripts/unit-slug-codes.ts'], { env: process.env }).toString()).toContain('của 0 căn');
+    const unit = await create({ unitCode: '1905' });
+    // Admin: the real code and floor, the public code, and what visitors read.
+    expect(unit).toMatchObject({ unitCode: '1905', floor: 19, publicCode: expect.stringMatching(/^SP-\d{5}$/), floorBand: 'high' });
+    expect(unit.publicView).toMatchObject({ name: 'Căn 2PN tầng cao view sông Hàn', floor: 'tầng cao', leaks: [] });
+    expect(unit.publicView.description).toBe(`Căn ${unit.publicCode} nằm ở tầng cao tòa T1, nhìn ra sông.`);
+    // The slug ends with the public code, never the real one or the floor.
+    expect(unit.slug).toBe(`can-2pn-view-song-han-${unit.publicCode.toLowerCase()}`);
+    const page = (await http().get(`/api/v1/properties/${unit.slug}`).expect(200)).body.data;
+    expect(page).toMatchObject({ unitCode: unit.publicCode, floor: null, floorBand: 'high', name: 'Căn 2PN tầng cao view sông Hàn' });
+    expect(JSON.stringify(page)).not.toMatch(/1905|tầng 19/);
+    // The site's search finds it by its public code, not by the real one or the floor.
+    const search = async (q: string) => (await http().get(`/api/v1/properties?q=${encodeURIComponent(q)}`).expect(200)).body.data.length;
+    expect(await search(unit.publicCode)).toBe(1);
+    expect(await search('1905')).toBe(0);
+    const indexed = await prisma.property.findUniqueOrThrow({ where: { id: unit.id }, select: { publicSearchText: true } });
+    expect(indexed.publicSearchText).not.toMatch(/1905|tang 19/);
+    expect((await admin.get('/api/v1/admin/properties?q=1905').expect(200)).body.data).toHaveLength(1);
+    // Staff find it by the code the visitor reads out too.
+    expect((await admin.get(`/api/v1/admin/properties?q=${unit.publicCode}`).expect(200)).body.data.map((u: { id: string }) => u.id)).toEqual([unit.id]);
+    // Another unit with the same code: its own number, its own slug.
+    const twin = await create({ unitCode: '1905' });
+    expect(twin.publicCode).not.toBe(unit.publicCode);
+    // A floor written in words is pointed out to Admin.
+    const odd = await create({ unitCode: '2207', floor: 22, description: 'Căn ở lầu hai mươi hai, mã T22.' });
+    expect(odd.publicView.leaks).toEqual(expect.arrayContaining(['lầu hai mươi hai', 'T22']));
+    // A low floor of the tower.
+    expect((await create({ unitCode: '0503', floor: 5 })).floorBand).toBe('low');
+    // Model units are the developer's layouts: they keep their code.
+    const model = await create({ name: 'Căn mẫu C4-01 2 PN', unitCode: 'C4-01', floor: undefined, floorNote: 'Tầng 5-10', description: 'Căn mẫu C4-01 áp dụng tầng 5-10.' });
+    expect(model.slug).toBe('can-mau-c4-01-2-pn-c4-01');
+    expect((await http().get(`/api/v1/properties/${model.slug}`).expect(200)).body.data).toMatchObject({ unitCode: 'C4-01', name: 'Căn mẫu C4-01 2 PN' });
+    // Units saved before: a slug with the real code or floor is replaced on start-up; the old link redirects.
+    await prisma.property.update({ where: { id: twin.id }, data: { slug: 'can-cu-tang-19-1905', publicSearchText: '' } });
+    await app.get(PropertiesService).onApplicationBootstrap();
+    const moved = await prisma.property.findUniqueOrThrow({ where: { id: twin.id } });
+    expect(moved.slug).toBe(`can-cu-${twin.publicCode.toLowerCase()}`);
+    const old = await http().get('/api/v1/properties/can-cu-tang-19-1905').redirects(0).expect(301);
+    expect(old.headers.location).toContain(`/properties/${moved.slug}`);
+    expect(moved.publicSearchText).toContain(twin.publicCode.toLowerCase());
+    // Translations of the texts saved before (real code, floor) leave the public dictionary.
+    const rows = [
+      ['Căn 1905 nằm ở tầng 19 tòa T1, nhìn ra sông.', false],
+      ['Căn 2PN tầng 19 view sông Hàn', false],
+      ['Mã 1905 kiểm tra', false],
+      ['Căn mẫu C4-01 áp dụng tầng 5-10.', true],
+      ['Căn hộ hướng sông Hàn.', true],
+      ['Tòa B cao 33 tầng', true],
+    ] as const;
+    await prisma.translation.createMany({
+      data: rows.map(([source]) => ({ locale: 'en', source, text: `EN ${source}`, sourceHash: `h-${source}` })),
+      skipDuplicates: true,
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261126171000_public_unit_translations/migration.sql', 'utf8'));
+    for (const [source, kept] of rows) expect(await prisma.translation.count({ where: { locale: 'en', source } })).toBe(kept ? 1 : 0);
+    // Photos stored under the real code move under the public one (npm run units:public-media).
+    const dir = process.env.LOCAL_MEDIA_DIR!;
+    const oldKey = 'can-ho/1905/1905-20261126-abcdef12.webp';
+    mkdirSync(join(dir, 'can-ho/1905'), { recursive: true });
+    writeFileSync(join(dir, oldKey), 'photo');
+    const photo = await prisma.mediaAsset.create({ data: { storage: 'LOCAL', key: oldKey, url: `http://localhost:4000/media/${oldKey}`, mimeType: 'image/webp', sizeBytes: 5 } });
+    await prisma.property.update({ where: { id: unit.id }, data: { coverImageId: photo.id, description: `Ảnh ![phòng](http://localhost:4000/media/${oldKey})` } });
+    const run = (...args: string[]) => execFileSync('npx', ['tsx', 'scripts/public-media-keys.ts', ...args], { env: process.env }).toString();
+    expect(run()).toContain('1 tệp sẽ đổi tên');
+    expect(existsSync(join(dir, oldKey))).toBe(true);
+    run('--apply');
+    const newKey = `can-ho/${unit.publicCode.toLowerCase()}/${unit.publicCode.toLowerCase()}-20261126-abcdef12.webp`;
+    expect(await prisma.mediaAsset.findUniqueOrThrow({ where: { id: photo.id } })).toMatchObject({ key: newKey, url: `http://localhost:4000/media/${newKey}` });
+    expect(existsSync(join(dir, newKey))).toBe(true);
+    expect(existsSync(join(dir, oldKey))).toBe(false);
+    expect((await prisma.property.findUniqueOrThrow({ where: { id: unit.id } })).description).toContain(newKey);
+    expect(run()).toContain('0 tệp sẽ đổi tên');
   });
 
   it('shows the editor badge and marks units many visitors look at as trending', async () => {
@@ -492,31 +533,33 @@ describe('properties', () => {
     const unit = (slug: string, extra = {}) =>
       admin.post('/api/v1/admin/properties', { slug, unitCode: codeOf(slug), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', status: 'PUBLISHED', ...extra }).expect(201);
     const { body } = await unit('pn-hot', { highlight: 'exclusive' });
-    await unit('pn-demo', { isDemo: true });
+    // Slugs end with the public code: use the ones the API gave.
+    const hot = body.data.slug as string;
+    const demo = (await unit('pn-demo', { isDemo: true })).body.data.slug as string;
     await admin.post('/api/v1/admin/properties', { slug: 'pn-bad', name: 'Căn sai', projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Mô tả đủ dài.', highlight: 'sieu-hot' }).expect(400);
     const browser = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1';
     const view = (slug: string, ua = browser) => http().post(`/api/v1/properties/${slug}/view`).set('user-agent', ua).expect(204);
     // 10 visits + 4 enquiries (worth 5 views each) reach the trending score of 30.
-    for (let n = 0; n < 9; n++) await view('pn-hot');
-    await view('pn-hot', 'Googlebot/2.1 (+http://www.google.com/bot.html)'); // not counted
-    await view('pn-demo'); // samples are not counted
+    for (let n = 0; n < 9; n++) await view(hot);
+    await view(hot, 'Googlebot/2.1 (+http://www.google.com/bot.html)'); // not counted
+    await view(demo); // samples are not counted
     await view('khong-ton-tai'); // unknown slug: silently ignored
-    let unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
+    let unitBody = (await http().get(`/api/v1/properties/${hot}`).expect(200)).body.data;
     expect(unitBody).toMatchObject({ highlight: 'exclusive', trending: false, interestScore: 9 });
-    await view('pn-hot');
+    await view(hot);
     for (const email of ['a@example.com', 'b@example.com', 'c@example.com', 'd@example.com'])
       await prisma.lead.create({ data: { kind: 'INQUIRY', source: 'Tư vấn căn hộ', name: 'Khách', email, message: 'Tôi muốn xem căn.', propertyId: body.data.id, consentAt: new Date() } });
-    unitBody = (await http().get('/api/v1/properties/pn-hot').expect(200)).body.data;
+    unitBody = (await http().get(`/api/v1/properties/${hot}`).expect(200)).body.data;
     expect(unitBody.trending).toBe(true);
     expect(unitBody.interestScore).toBe(30);
     const list = (await http().get('/api/v1/properties?project=panoma').expect(200)).body.data;
-    expect(list.find((p: { slug: string }) => p.slug === 'pn-hot').trending).toBe(true);
+    expect(list.find((p: { name: string }) => p.name === 'Căn pn-hot').trending).toBe(true);
     const adminUnit = (await admin.get(`/api/v1/admin/properties/${body.data.id}`).expect(200)).body.data;
     expect(adminUnit.interest).toEqual({ days: 14, views: 10, leads: 4 });
     expect(await prisma.propertyViewDay.count()).toBe(1);
     // Each view also keeps where it came from; an unknown source is "other".
-    await http().post('/api/v1/properties/pn-hot/view?source=ai').set('user-agent', browser).expect(204);
-    await http().post('/api/v1/properties/pn-hot/view?source=evil%27--').set('user-agent', browser).expect(204);
+    await http().post(`/api/v1/properties/${hot}/view?source=ai`).set('user-agent', browser).expect(204);
+    await http().post(`/api/v1/properties/${hot}/view?source=evil%27--`).set('user-agent', browser).expect(204);
     const sources = await prisma.propertyViewSource.findMany({ select: { source: true, views: true }, orderBy: { source: 'asc' } });
     expect(sources).toEqual([
       { source: 'ai', views: 1 },
@@ -524,16 +567,16 @@ describe('properties', () => {
     ]);
     // Each view is also kept one by one for "Lượt xem gần đây": where from,
     // language and kind of device only (no IP, no user agent).
-    await http().post('/api/v1/properties/pn-hot/view?source=zalo&locale=ko').set('user-agent', browser).expect(204);
-    await http().post('/api/v1/properties/pn-hot/view?locale=xx').set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130').expect(204);
+    await http().post(`/api/v1/properties/${hot}/view?source=zalo&locale=ko`).set('user-agent', browser).expect(204);
+    await http().post(`/api/v1/properties/${hot}/view?locale=xx`).set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130').expect(204);
     expect(await prisma.propertyView.count()).toBe(14);
     const recent = (await admin.get('/api/v1/admin/dashboard?days=7').expect(200)).body.data.recentViews;
     expect(recent).toHaveLength(14);
-    expect(recent[0]).toMatchObject({ source: 'other', locale: 'vi', device: 'desktop', path: '/cho-thue/pn-hot', name: 'Căn pn-hot' });
+    expect(recent[0]).toMatchObject({ source: 'other', locale: 'vi', device: 'desktop', path: `/cho-thue/${hot}`, name: 'Căn pn-hot' });
     expect(recent[1]).toMatchObject({ source: 'zalo', locale: 'ko', device: 'mobile' });
     expect(Object.keys(recent[0]).sort()).toEqual(['at', 'device', 'id', 'locale', 'name', 'path', 'project', 'source', 'unitCode']);
     // The badge can be removed again.
     await admin.patch(`/api/v1/admin/properties/${body.data.id}`, { highlight: null }).expect(200);
-    expect((await http().get('/api/v1/properties/pn-hot').expect(200)).body.data.highlight).toBeNull();
+    expect((await http().get(`/api/v1/properties/${hot}`).expect(200)).body.data.highlight).toBeNull();
   });
 });

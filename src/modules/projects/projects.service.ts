@@ -274,6 +274,7 @@ export class ProjectsService {
       handoverDate: date(dto.handoverDate),
       mapUrl: dto.mapUrl,
       facebookUrl: dto.facebookUrl,
+      codePrefix: dto.codePrefix,
       mapLabel: dto.mapLabel,
       latitude: dto.latitude,
       longitude: dto.longitude,

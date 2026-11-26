@@ -8,6 +8,9 @@
  *   npm run units:codes -- --dry   # only list what would change
  *
  * Safe to run on every deploy: once renamed, nothing matches any more.
+ *
+ * Only model units (with a floor note) carry their code: an owner's unit
+ * ends with its public code instead, set by the API (public-unit.ts).
  */
 import { prisma } from './db.js';
 import { slugify, unitSlug } from '../src/common/utils/text.js';
@@ -28,7 +31,7 @@ const freeCode = async (id: string) => {
   return `DVG-${hex}`;
 };
 
-const units = await prisma.property.findMany({ where: { deletedAt: null }, select: { id: true, slug: true, unitCode: true } });
+const units = await prisma.property.findMany({ where: { deletedAt: null, floorNote: { gt: '' } }, select: { id: true, slug: true, unitCode: true } });
 for (const unit of units) {
   const code = unit.unitCode?.trim() || (await freeCode(unit.id));
   const suffix = slugify(code);

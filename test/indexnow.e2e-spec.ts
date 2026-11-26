@@ -42,7 +42,9 @@ describe('IndexNow', () => {
     const project = await prisma.project.create({ data: { slug: 'monarchy', name: 'The Monarchy', location: 'Đà Nẵng', intro: 'Dự án.', status: 'PUBLISHED', publishedAt: new Date() } });
     const unit = (slug: string, extra = {}) =>
       admin.post('/api/v1/admin/properties', { slug, unitCode: slug.split('-').pop(), name: `Căn ${slug}`, projectId: project.id, propertyType: '2pn', location: 'Đà Nẵng', areaM2: 70, bedrooms: 2, bathrooms: 2, description: 'Căn hộ hướng sông Hàn.', rentPriceVnd: '15000000', ...extra }).expect(201);
-    await unit('can-a-a1', { status: 'PUBLISHED', forSale: true, salePriceVnd: '3000000000' });
+    // Slugs end with the public code ("can-a-a1-dv-48213"), not the real one.
+    const a = (await unit('can-a-a1', { status: 'PUBLISHED', forSale: true, salePriceVnd: '3000000000' })).body.data.slug as string;
+    expect(a).toMatch(/^can-a-a1-dv-\d{5}$/);
     await unit('can-nhap-b2'); // draft: not announced
     await unit('can-mau-c3', { status: 'PUBLISHED', isDemo: true }); // sample: not announced
     await indexNow.flush();
@@ -52,11 +54,11 @@ describe('IndexNow', () => {
     expect(sent).toMatchObject({ host: 'localhost:3000', key: 'f2f3bf2db002372ff737c2fcfe17c9ba', keyLocation: 'http://localhost:3000/f2f3bf2db002372ff737c2fcfe17c9ba.txt' });
     expect(sent.urlList).toEqual(
       expect.arrayContaining([
-        'http://localhost:3000/cho-thue/can-a-a1',
-        'http://localhost:3000/mua-ban/can-a-a1',
-        'http://localhost:3000/en/cho-thue/can-a-a1',
-        'http://localhost:3000/ko/cho-thue/can-a-a1',
-        'http://localhost:3000/zh/cho-thue/can-a-a1',
+        `http://localhost:3000/cho-thue/${a}`,
+        `http://localhost:3000/mua-ban/${a}`,
+        `http://localhost:3000/en/cho-thue/${a}`,
+        `http://localhost:3000/ko/cho-thue/${a}`,
+        `http://localhost:3000/zh/cho-thue/${a}`,
         'http://localhost:3000/cho-thue/du-an/monarchy',
         'http://localhost:3000/cho-thue',
       ]),
@@ -64,10 +66,10 @@ describe('IndexNow', () => {
     expect(sent.urlList.join(' ')).not.toMatch(/can-nhap|can-mau/);
 
     // Taking a unit down is announced too (search engines drop the page).
-    const live = await prisma.property.findUniqueOrThrow({ where: { slug: 'can-a-a1' } });
+    const live = await prisma.property.findUniqueOrThrow({ where: { slug: a } });
     await admin.del(`/api/v1/admin/properties/${live.id}`).expect(204);
     await indexNow.flush();
-    expect(received[1].urlList).toContain('http://localhost:3000/cho-thue/can-a-a1');
+    expect(received[1].urlList).toContain(`http://localhost:3000/cho-thue/${a}`);
     // Nothing queued: nothing sent.
     await indexNow.flush();
     expect(received).toHaveLength(2);

@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { pageMeta } from '../../common/dto/pagination.dto.js';
 import { badRequest, forbidden, gone, MovedError, notFound } from '../../common/errors.js';
 import { assertFresh, image, publishedWhere, publishFields } from '../../common/utils/content.js';
 import { decimal, isoDate, money, toBigInt } from '../../common/utils/serialize.js';
-import { normalize, unitSlug } from '../../common/utils/text.js';
+import { normalize, slugify, unitSlug } from '../../common/utils/text.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { editorsOf, type Editors } from '../../common/utils/admin-list.js';
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -16,9 +16,10 @@ import { RevalidationService } from '../revalidation/revalidation.service.js';
 import { IndexNowService } from '../indexnow/indexnow.service.js';
 import { DAY_MS, vnDay, vnDayStart } from '../../common/vn-day.js';
 import type { AdminPropertyQuery, CreatePropertyDto, PublicPropertyQuery, UpdatePropertyDto } from './properties.dto.js';
+import { BAND_TEXT, floorBand, isModelUnit, leaks, maskable, maskText, publicCode, publicSlug, type UnitFacts } from './public-unit.js';
 
 const include = {
-  project: { select: { id: true, slug: true, name: true, status: true, deletedAt: true, publishedAt: true } },
+  project: { select: { id: true, slug: true, name: true, status: true, deletedAt: true, publishedAt: true, codePrefix: true, towers: true } },
   propertyType: true,
   coverImage: true,
   images: { include: { media: true }, orderBy: { sortOrder: 'asc' } },
@@ -62,7 +63,8 @@ const trending = (i?: Interest) => interestScore(i) >= TRENDING_SCORE;
 /** Crawlers and link previews do not count as interest. */
 export const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|curl|wget|python|axios|node-fetch/i;
 
-function toPublic(p: Row, interest?: Interest) {
+/** Every field as stored (Admin); visitors get toPublic. */
+function toView(p: Row, interest?: Interest) {
   const alt = p.coverImageAlt || `${p.name}${p.isDemo ? ' · Ảnh nội thất minh họa' : ''}`;
   return {
     id: p.id,
@@ -118,9 +120,41 @@ function toPublic(p: Row, interest?: Interest) {
     updatedAt: p.updatedAt,
   };
 }
-function toAdmin(p: Row, interest?: Interest, editors?: Editors, days: number = INTEREST_DAYS) {
+/** The unit as visitors may see it: no real code or floor, in any field (public-unit.ts). */
+function masked(p: Row): Row {
+  if (isModelUnit(p)) return p;
+  const m = (text: string | null) => maskText(text, p);
   return {
-    ...toPublic(p, interest),
+    ...p,
+    unitCode: publicCode(p),
+    floor: null,
+    name: m(p.name)!,
+    description: m(p.description)!,
+    viewNote: m(p.viewNote),
+    rentalPolicy: m(p.rentalPolicy),
+    seoTitle: m(p.seoTitle),
+    seoDescription: m(p.seoDescription),
+    coverImageAlt: m(p.coverImageAlt),
+  };
+}
+function toPublic(p: Row, interest?: Interest) {
+  return { ...toView(masked(p), interest), floorBand: floorBand(p) };
+}
+function toAdmin(p: Row, interest?: Interest, editors?: Editors, days: number = INTEREST_DAYS) {
+  const shown = masked(p);
+  return {
+    ...toView(p, interest),
+    /** What the site shows instead of the code and floor, and anything still giving them away. */
+    publicCode: isModelUnit(p) ? null : publicCode(p),
+    floorBand: floorBand(p),
+    publicView: {
+      name: shown.name,
+      description: shown.description,
+      seoTitle: shown.seoTitle,
+      seoDescription: shown.seoDescription,
+      floor: floorBand(p) ? BAND_TEXT[floorBand(p)!] : null,
+      leaks: leaks([shown.name, shown.description, shown.viewNote, shown.rentalPolicy, shown.seoTitle, shown.seoDescription, shown.coverImageAlt, p.slug], p),
+    },
     createdBy: editors?.createdBy ?? null,
     updatedBy: editors?.updatedBy ?? null,
     interest: { days, views: interest?.views ?? 0, leads: interest?.leads ?? 0 },
@@ -179,7 +213,8 @@ export const deviceOf = (userAgent: string) =>
 const VIEW_LOG_DAYS = 90;
 
 @Injectable()
-export class PropertiesService {
+export class PropertiesService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(PropertiesService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -188,10 +223,16 @@ export class PropertiesService {
     private readonly i18n: I18nService,
   ) {}
 
-  private filters(q: PublicPropertyQuery): Prisma.PropertyWhereInput {
+  /**
+   * Visitors search the masked texts (publicSearchText); Admin both, so the
+   * code a visitor reads out ("MN-95207") finds the unit too.
+   */
+  private filters(q: PublicPropertyQuery, admin = false): Prisma.PropertyWhereInput {
+    const word = (w: string): Prisma.PropertyWhereInput =>
+      admin ? { OR: [{ searchText: { contains: w } }, { publicSearchText: { contains: w } }] } : { publicSearchText: { contains: w } };
     return {
       // Every word must match (accent-insensitive), in any order.
-      ...(q.q ? { AND: normalize(q.q).split(/[^a-z0-9]+/).filter(Boolean).slice(0, 8).map((word) => ({ searchText: { contains: word } })) } : {}),
+      ...(q.q ? { AND: normalize(q.q).split(/[^a-z0-9]+/).filter(Boolean).slice(0, 8).map(word) } : {}),
       ...(q.location ? { location: q.location } : {}),
       ...(q.project ? { project: { slug: q.project } } : {}),
       ...(q.type ? { propertyType: { code: q.type } } : {}),
@@ -309,7 +350,7 @@ export class PropertiesService {
     const where: Prisma.PropertyWhereInput = {
       deletedAt: null,
       status: q.status,
-      ...this.filters(q),
+      ...this.filters(q, true),
       ...(q.highlight === 'none' ? { highlight: null } : q.highlight ? { highlight: q.highlight } : {}),
       ...kindWhere(q.kind),
       // Without a status filter or a search, units off the site wait under
@@ -376,12 +417,15 @@ export class PropertiesService {
       await this.assertPlace(tx, { projectId: dto.projectId ?? null, propertyTypeId: refs.typeId!, latitude: dto.latitude ?? null, longitude: dto.longitude ?? null });
       const newId = randomUUID();
       const unitCode = dto.unitCode || (await this.autoUnitCode(tx, newId));
-      const slug = await this.freeSlug(tx, dto.slug || dto.name, unitCode);
+      const publicNumber = await this.freeNumber(tx);
+      const facts = await this.facts(tx, { unitCode, floor: dto.floor ?? null, floorNote: dto.floorNote ?? null, tower: dto.tower ?? null, publicNumber, projectId: dto.projectId ?? null });
+      const slug = await this.freeSlug(tx, dto.slug || dto.name, facts);
       const row = await tx.property.create({
         data: {
           ...this.scalars(dto),
           id: newId,
           unitCode,
+          publicNumber,
           slug,
           name: dto.name,
           location: dto.location,
@@ -400,9 +444,11 @@ export class PropertiesService {
       await this.audit.log({ actorId: user.id, action: 'property.create', entityType: 'property', entityId: row.id, changes: { slug, unitCode, projectId: dto.projectId } }, tx);
       return row.id;
     });
+    // Translated as visitors read it: real codes and floors never reach the dictionary.
+    const shown = await this.refreshPublic(id);
     await this.revalidation.trigger('properties', 'projects');
     await this.indexNow.changed('property', id);
-    this.i18n.queueContent(dto);
+    if (shown) this.i18n.queueContent({ name: shown.name, description: shown.description, viewNote: shown.viewNote, rentalPolicy: shown.rentalPolicy, seo: shown.seo });
     return this.adminGet(id);
   }
 
@@ -422,7 +468,15 @@ export class PropertiesService {
       });
       // An empty unit code gets one; slugs end with the unit code.
       const unitCode = (dto.unitCode === undefined ? existing.unitCode : dto.unitCode) || (await this.autoUnitCode(tx, id));
-      const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, unitCode, id) : undefined;
+      const facts = await this.facts(tx, {
+        unitCode,
+        floor: pick(dto.floor, existing.floor),
+        floorNote: pick(dto.floorNote, existing.floorNote),
+        tower: pick(dto.tower, existing.tower),
+        publicNumber: existing.publicNumber,
+        projectId: pick(dto.projectId, existing.projectId),
+      });
+      const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, facts, id) : undefined;
       await tx.property.update({
         where: { id },
         data: {
@@ -453,9 +507,11 @@ export class PropertiesService {
       await this.relations(tx, id, dto);
       await this.audit.log({ actorId: user.id, action: 'property.update', entityType: 'property', entityId: id, changes: JSON.parse(JSON.stringify(dto)) }, tx);
     });
+    // Translated as visitors read it: real codes and floors never reach the dictionary.
+    const shown = await this.refreshPublic(id);
     await this.revalidation.trigger('properties', 'projects');
     await this.indexNow.changed('property', id);
-    this.i18n.queueContent(dto);
+    if (shown) this.i18n.queueContent({ name: shown.name, description: shown.description, viewNote: shown.viewNote, rentalPolicy: shown.rentalPolicy, seo: shown.seo });
     return this.adminGet(id);
   }
 
@@ -473,6 +529,77 @@ export class PropertiesService {
   private assertPublishRight(next: string | undefined, current: string | undefined, user: AuthUser) {
     const changes = next !== undefined && next !== current && (next === 'PUBLISHED' || current === 'PUBLISHED');
     if (changes && !user.permissions.includes(PERMISSIONS.publish)) throw forbidden('Bạn không có quyền xuất bản hoặc gỡ xuất bản.');
+  }
+
+  /** A random five-digit number no unit has (the public code's digits). */
+  private async freeNumber(tx: Prisma.TransactionClient = this.prisma) {
+    for (;;) {
+      const n = 10000 + Math.floor(Math.random() * 90000);
+      if (!(await tx.property.findUnique({ where: { publicNumber: n }, select: { id: true } }))) return n;
+    }
+  }
+
+  /** What public-unit.ts needs of a unit, with its project's prefix and towers. */
+  private async facts(
+    tx: Prisma.TransactionClient,
+    p: Omit<UnitFacts, 'project'> & { projectId: string | null },
+  ): Promise<UnitFacts> {
+    const project = p.projectId ? await tx.project.findUnique({ where: { id: p.projectId }, select: { codePrefix: true, towers: true } }) : null;
+    return { ...p, project };
+  }
+
+  /**
+   * After a save, and for every unit at start-up: a public number, the
+   * site's search text, and a slug that gives away neither the real code nor
+   * the floor (the old one redirects). Returns the unit as visitors see it.
+   */
+  async refreshPublic(id: string) {
+    let row = await this.prisma.property.findFirst({ where: { id, deletedAt: null }, include });
+    if (!row) return null;
+    const data: Prisma.PropertyUpdateInput = {};
+    if (row.publicNumber == null) row = { ...row, publicNumber: (data.publicNumber = await this.freeNumber()) };
+    const shown = masked(row);
+    const search = this.searchText(shown.name, shown.unitCode, row.location, row.project?.name);
+    if (search !== row.publicSearchText) data.publicSearchText = search;
+    const realCode = maskable(row.unitCode) ? `-${slugify(row.unitCode)}` : '';
+    const leaky =
+      !isModelUnit(row) &&
+      ((realCode && (row.slug.endsWith(realCode) || row.slug.includes(`${realCode}-`))) || /(^|-)(tang|lau)-\d{1,2}[ab]?(-|$)/.test(row.slug));
+    const slug = leaky ? await this.freeSlug(this.prisma, row.slug, row, id) : undefined;
+    if (slug && slug !== row.slug) data.slug = slug;
+    if (Object.keys(data).length) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.property.update({ where: { id }, data });
+        if (data.slug) {
+          await tx.slugRedirect.deleteMany({ where: { entityType: 'PROPERTY', fromSlug: slug } });
+          await tx.slugRedirect.upsert({
+            where: { entityType_fromSlug: { entityType: 'PROPERTY', fromSlug: row!.slug } },
+            create: { entityType: 'PROPERTY', fromSlug: row!.slug, entityId: id },
+            update: { entityId: id },
+          });
+        }
+      });
+      row = { ...row, ...(data as object) } as Row;
+    }
+    return toPublic(row);
+  }
+
+  /** Units saved before public codes existed get theirs (and a clean slug) once. */
+  async onApplicationBootstrap() {
+    try {
+      const rows = await this.prisma.property.findMany({ where: { deletedAt: null }, select: { id: true, slug: true, publicSearchText: true, publicNumber: true } });
+      let changed = 0;
+      for (const r of rows) {
+        const after = await this.refreshPublic(r.id);
+        if (after && (after.slug !== r.slug || r.publicNumber == null || !r.publicSearchText)) changed++;
+      }
+      if (changed) {
+        this.logger.log({ changed }, 'public unit codes refreshed');
+        await this.revalidation.trigger('properties', 'projects');
+      }
+    } catch (err) {
+      this.logger.error({ err: (err as Error).message }, 'public unit codes refresh failed');
+    }
   }
 
   private searchText(...parts: (string | null | undefined)[]) {
@@ -529,12 +656,13 @@ export class PropertiesService {
    * unit code ("can-2pn-view-song-a-12-05"); a number is added when another
    * unit already has it.
    */
-  private async freeSlug(tx: Prisma.TransactionClient, base: string, unitCode: string, selfId?: string) {
+  private async freeSlug(tx: Prisma.TransactionClient, base: string, facts: UnitFacts, selfId?: string) {
     const taken = async (slug: string) => {
       const row = await tx.property.findUnique({ where: { slug }, select: { id: true } });
       return !!row && row.id !== selfId;
     };
-    const slug = unitSlug(base, unitCode);
+    // An owner's unit ends with its public code; a model unit with its own.
+    const slug = isModelUnit(facts) ? unitSlug(base, facts.unitCode ?? '') : publicSlug(base, facts);
     if (!(await taken(slug))) return slug;
     for (let n = 2; ; n++) if (!(await taken(`${slug}-${n}`))) return `${slug}-${n}`;
   }

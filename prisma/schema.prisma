@@ -199,6 +199,8 @@ model Project {
   id             String        @id @default(uuid()) @db.Uuid
   slug           String        @unique
   legacyKey      String?       @unique @map("legacy_key") // FE short id, e.g. "capital"
+  /// Letters before its units' public codes ("MN" → "MN-95207").
+  codePrefix     String?       @map("code_prefix")
   name           String
   stage          ProjectStage  @default(UNDER_DEVELOPMENT)
   status         PublishStatus @default(DRAFT)
@@ -366,6 +368,9 @@ model Property {
   projectId             String?       @map("project_id") @db.Uuid
   propertyTypeId        String        @map("property_type_id") @db.Uuid
   unitCode              String?       @map("unit_code")
+  /// Random number of the code visitors see ("MN-95207"); the real code and
+  /// floor stay in Admin (public-unit.ts).
+  publicNumber          Int?          @unique @map("public_number")
   forRent               Boolean       @default(true) @map("for_rent")
   forSale               Boolean       @default(false) @map("for_sale")
   isConsignment         Boolean       @default(false) @map("is_consignment")
@@ -409,6 +414,8 @@ model Property {
   description           String
   /// Lower-case, accent-free text (name, code, location, project) for search.
   searchText            String        @default("") @map("search_text")
+  /// The same for the site's search: masked texts and the public code.
+  publicSearchText      String        @default("") @map("public_search_text")
   coverImageId          String?       @map("cover_image_id") @db.Uuid
   coverImageAlt         String?       @map("cover_image_alt")
   videoUrl              String?       @map("video_url")

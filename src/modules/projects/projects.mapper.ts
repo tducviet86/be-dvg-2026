@@ -82,6 +82,7 @@ export function toAdminProject(
     coverImageAlt: p.coverImageAlt,
     mapUrl: p.mapUrl,
     mapLabel: p.mapLabel,
+    codePrefix: p.codePrefix,
     latitude: decimal(p.latitude),
     longitude: decimal(p.longitude),
     rentalIntro: p.rentalIntro,
