@@ -482,6 +482,11 @@ describe('properties', () => {
     expect(odd.publicView.leaks).toEqual(expect.arrayContaining(['lầu hai mươi hai', 'T22']));
     // A low floor of the tower.
     expect((await create({ unitCode: '0503', floor: 5 })).floorBand).toBe('low');
+    // A townhouse's floors are its size: said as is, in its slug and texts too.
+    const house = await create({ name: 'Nhà phố 3 tầng gần sông', projectId: null, propertyType: 'nha-pho', latitude: 16.06, longitude: 108.22, tower: undefined, unitCode: 'NP-1234', floor: 3, description: 'Nhà 3 tầng, phòng ngủ ở tầng 2.' });
+    expect(house).toMatchObject({ floorBand: null, publicView: { name: 'Nhà phố 3 tầng gần sông', leaks: [] } });
+    expect(house.slug).toMatch(/^nha-pho-3-tang-gan-song-dv-\d{5}$/);
+    expect((await http().get(`/api/v1/properties/${house.slug}`).expect(200)).body.data).toMatchObject({ floor: 3, floorBand: null, unitCode: expect.stringMatching(/^DV-\d{5}$/), description: 'Nhà 3 tầng, phòng ngủ ở tầng 2.' });
     // Model units are the developer's layouts: they keep their code.
     const model = await create({ name: 'Căn mẫu C4-01 2 PN', unitCode: 'C4-01', floor: undefined, floorNote: 'Tầng 5-10', description: 'Căn mẫu C4-01 áp dụng tầng 5-10.' });
     expect(model.slug).toBe('can-mau-c4-01-2-pn-c4-01');

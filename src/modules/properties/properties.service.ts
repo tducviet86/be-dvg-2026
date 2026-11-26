@@ -127,7 +127,8 @@ function masked(p: Row): Row {
   return {
     ...p,
     unitCode: publicCode(p),
-    floor: null,
+    // A townhouse's or premises' floors are its size: kept ("3 tầng").
+    floor: floorBand(p) || !p.floor || p.propertyType.group === 'apartment' ? null : p.floor,
     name: m(p.name)!,
     description: m(p.description)!,
     viewNote: m(p.viewNote),
@@ -418,7 +419,7 @@ export class PropertiesService implements OnApplicationBootstrap {
       const newId = randomUUID();
       const unitCode = dto.unitCode || (await this.autoUnitCode(tx, newId));
       const publicNumber = await this.freeNumber(tx);
-      const facts = await this.facts(tx, { unitCode, floor: dto.floor ?? null, floorNote: dto.floorNote ?? null, tower: dto.tower ?? null, publicNumber, projectId: dto.projectId ?? null });
+      const facts = await this.facts(tx, { unitCode, floor: dto.floor ?? null, floorNote: dto.floorNote ?? null, tower: dto.tower ?? null, publicNumber, projectId: dto.projectId ?? null, propertyTypeId: refs.typeId! });
       const slug = await this.freeSlug(tx, dto.slug || dto.name, facts);
       const row = await tx.property.create({
         data: {
@@ -475,6 +476,7 @@ export class PropertiesService implements OnApplicationBootstrap {
         tower: pick(dto.tower, existing.tower),
         publicNumber: existing.publicNumber,
         projectId: pick(dto.projectId, existing.projectId),
+        propertyTypeId: refs.typeId ?? existing.propertyTypeId,
       });
       const slug = dto.slug && dto.slug !== existing.slug ? await this.freeSlug(tx, dto.slug, facts, id) : undefined;
       await tx.property.update({
@@ -542,10 +544,11 @@ export class PropertiesService implements OnApplicationBootstrap {
   /** What public-unit.ts needs of a unit, with its project's prefix and towers. */
   private async facts(
     tx: Prisma.TransactionClient,
-    p: Omit<UnitFacts, 'project'> & { projectId: string | null },
+    p: Omit<UnitFacts, 'project' | 'propertyType'> & { projectId: string | null; propertyTypeId: string },
   ): Promise<UnitFacts> {
     const project = p.projectId ? await tx.project.findUnique({ where: { id: p.projectId }, select: { codePrefix: true, towers: true } }) : null;
-    return { ...p, project };
+    const propertyType = await tx.propertyType.findUnique({ where: { id: p.propertyTypeId }, select: { group: true } });
+    return { ...p, project, propertyType };
   }
 
   /**
@@ -564,7 +567,8 @@ export class PropertiesService implements OnApplicationBootstrap {
     const realCode = maskable(row.unitCode) ? `-${slugify(row.unitCode)}` : '';
     const leaky =
       !isModelUnit(row) &&
-      ((realCode && (row.slug.endsWith(realCode) || row.slug.includes(`${realCode}-`))) || /(^|-)(tang|lau)-\d{1,2}[ab]?(-|$)/.test(row.slug));
+      ((realCode && (row.slug.endsWith(realCode) || row.slug.includes(`${realCode}-`))) ||
+        (row.propertyType.group === 'apartment' && /(^|-)(tang|lau)-\d{1,2}[ab]?(-|$)/.test(row.slug)));
     const slug = leaky ? await this.freeSlug(this.prisma, row.slug, row, id) : undefined;
     if (slug && slug !== row.slug) data.slug = slug;
     if (Object.keys(data).length) {

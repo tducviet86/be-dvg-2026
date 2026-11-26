@@ -12,6 +12,8 @@ export const BAND_TEXT: Record<FloorBand, string> = { low: 'tầng thấp', mid:
 
 export type UnitFacts = {
   unitCode: string | null;
+  /** "townhouse", "premises", "office": its floor is how many floors it has, said as is. */
+  propertyType?: { group: string | null } | null;
   floor: number | null;
   floorNote: string | null;
   tower: string | null;
@@ -20,6 +22,8 @@ export type UnitFacts = {
 };
 
 export const isModelUnit = (p: Pick<UnitFacts, 'floorNote'>) => !!p.floorNote?.trim();
+/** A townhouse, premises or office: "3 tầng" is its size, not a place in a tower. */
+const ownFloors = (p: UnitFacts) => !!p.propertyType?.group && p.propertyType.group !== 'apartment';
 
 /** "MN-95207"; "DV-…" outside any project or without a prefix set. */
 export const publicCode = (p: UnitFacts) =>
@@ -35,7 +39,7 @@ function towerFloors(p: UnitFacts) {
 
 /** The lower, middle or upper third of its tower. */
 export function floorBand(p: UnitFacts): FloorBand | null {
-  if (!p.floor || isModelUnit(p)) return null;
+  if (!p.floor || isModelUnit(p) || ownFloors(p)) return null;
   const share = p.floor / towerFloors(p);
   return share <= 1 / 3 ? 'low' : share <= 2 / 3 ? 'mid' : 'high';
 }
@@ -50,7 +54,7 @@ const FLOOR_WORDS = /(?<![\p{L}\d])(tầng|tang|lầu|lau|floor)\s*(\d{1,2}[ab]?
 export function maskText(text: string | null, p: UnitFacts): string | null {
   if (!text || isModelUnit(p)) return text;
   const band = floorBand(p);
-  let out = text.replace(FLOOR_WORDS, (_m, word: string) => {
+  let out = ownFloors(p) ? text : text.replace(FLOOR_WORDS, (_m, word: string) => {
     const said = band ? BAND_TEXT[band] : 'tầng';
     return word[0] === word[0].toUpperCase() ? said[0].toUpperCase() + said.slice(1) : said;
   });
@@ -68,8 +72,8 @@ export function leaks(texts: (string | null | undefined)[], p: UnitFacts): strin
   const all = texts.filter(Boolean).join('\n');
   const found = new Set<string>();
   if (maskable(p.unitCode) && new RegExp(`(?<![\\p{L}\\d-])${escape(p.unitCode)}(?![\\p{L}\\d])`, 'iu').test(all)) found.add(p.unitCode);
-  for (const m of all.matchAll(/(?<![\p{L}\d])(?:tầng|lầu)\s+(?:thứ\s+)?(?:một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|mươi)[\p{L} ]{0,20}/giu)) found.add(m[0].trim());
-  if (p.floor) for (const m of all.matchAll(new RegExp(`(?<![\\p{L}\\d])[TL]${p.floor}(?:[AB])?(?![\\p{L}\\d])`, 'gu'))) found.add(m[0]);
+  if (!ownFloors(p)) for (const m of all.matchAll(/(?<![\p{L}\d])(?:tầng|lầu)\s+(?:thứ\s+)?(?:một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|mươi)[\p{L} ]{0,20}/giu)) found.add(m[0].trim());
+  if (p.floor && !ownFloors(p)) for (const m of all.matchAll(new RegExp(`(?<![\\p{L}\\d])[TL]${p.floor}(?:[AB])?(?![\\p{L}\\d])`, 'gu'))) found.add(m[0]);
   if (p.unitCode) {
     const digits = p.unitCode.replace(/[^0-9a-z]/gi, '');
     if (digits.length >= 3)
@@ -84,8 +88,8 @@ export function publicSlug(base: string, p: UnitFacts) {
   const code = publicCode(p);
   let root = slugify(base);
   if (maskable(p.unitCode)) root = root.replace(new RegExp(`(^|-)${escape(slugify(p.unitCode))}(?=-|$)`, 'g'), '$1');
+  if (!ownFloors(p)) root = root.replace(/(^|-)(tang|lau|floor)-\d{1,2}[ab]?(?=-|$)/g, '$1');
   root = root
-    .replace(/(^|-)(tang|lau|floor)-\d{1,2}[ab]?(?=-|$)/g, '$1')
     .replace(/(^|-)(mn|sp|pn|az|st|hg|cs|ss|ct|dv|dvg)-\d{4,6}(?=-|$)/g, '$1')
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '')
