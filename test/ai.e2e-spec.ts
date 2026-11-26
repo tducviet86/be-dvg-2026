@@ -273,6 +273,40 @@ describe('website translation', () => {
       expect((await prisma.translation.findFirstOrThrow({ where: { locale, source } })).text).toBe(expected);
   });
 
+  it('model units and "2 PN +1" read the same everywhere, and old AI wordings go', async () => {
+    for (const [locale, rule] of [
+      ['en', '"Căn mẫu C4-01 2 PN +1" → "Model unit C4-01, 2+1 bedrooms"'],
+      ['ko', '"2 PN +1" → "침실 2+1"'],
+      ['zh', '"2 PN +1" → "2+1房"'],
+    ]) {
+      await translate({ locale, texts: ['Căn mẫu C9-01 2 PN +1 kiểm tra'] }).expect(200);
+      expect(lastRequest.body.system_instruction).toContain(rule);
+    }
+    const rows: [string, string, string, boolean, boolean][] = [
+      // locale, source, text, reviewed, kept
+      ['en', 'Căn mẫu C9-02 kiểm tra', 'Sample unit C9-02', false, false],
+      ['en', 'Xem căn mẫu kiểm tra', 'View sample unit', false, false],
+      ['en', '78.5 m² · 2 PN +1 kiểm tra', '78.5 m² · 2 bedrooms +1', false, false],
+      ['zh', '78.5 m² · 2 PN +1 kiểm tra', '78.5 m² · 2 卧室 +1', false, false],
+      ['ko', 'Căn 2PN+1 kiểm tra', '침실 2개 +1', false, false],
+      ['zh', 'Căn mẫu C9-03 kiểm tra', '样板房 C9-03', false, true],
+      ['en', 'Căn mẫu C9-04 kiểm tra', 'Model unit C9-04, checked', true, true],
+      ['en', 'Căn 2 phòng ngủ kiểm tra', '2-bedroom apartment', false, true],
+    ];
+    await prisma.translation.createMany({
+      data: rows.map(([locale, source, text, reviewed]) => ({
+        locale,
+        source,
+        text,
+        reviewed,
+        sourceHash: createHash('sha256').update(source).digest('hex'),
+      })),
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261126100000_model_unit_translations/migration.sql', 'utf8'));
+    for (const [locale, source, , , kept] of rows)
+      expect(await prisma.translation.count({ where: { locale, source } })).toBe(kept ? 1 : 0);
+  });
+
   it('thousands of "tỷ" are trillions, in new translations and in stored ones', async () => {
     for (const [locale, rule] of [
       ['en', '10.750 tỷ → 10.75 trillion VND'],
