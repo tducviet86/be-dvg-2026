@@ -307,6 +307,33 @@ describe('website translation', () => {
       expect(await prisma.translation.count({ where: { locale, source } })).toBe(kept ? 1 : 0);
   });
 
+  it('"bàn giao thô" is not golf, and 3D models and floor plans of model units read well', async () => {
+    for (const [locale, rule] of [
+      ['ko', '"bàn giao thô" → "골조 상태 인도"'],
+      ['en', '"Mô hình 3D Căn mẫu C6-09 1 PN" → "3D model of model unit C6-09, 1 bedroom"'],
+      ['en', '"Mặt bằng Căn mẫu C6-09 1 PN" → "Floor plan of model unit C6-09, 1 bedroom"'],
+    ]) {
+      await translate({ locale, texts: ['Căn mẫu C9-05 bàn giao thô kiểm tra'] }).expect(200);
+      expect(lastRequest.body.system_instruction).toContain(rule);
+    }
+    const rows: [string, string, string, boolean][] = [
+      // locale, source, text, kept
+      ['ko', 'Căn mẫu C9-06, bàn giao thô kiểm tra', '샘플 세대 C9-06, 골프조적 마감', false],
+      ['ko', 'Căn mẫu C9-07, bàn giao thô kiểm tra', '샘플 세대 C9-07, 골프 쉘(골조) 마감', false],
+      ['ko', 'Gần sân golf kiểm tra', '골프장 인근', true],
+      ['ko', 'Căn mẫu C9-08, bàn giao thô kiểm tra', '샘플 세대 C9-08, 골조 상태 인도', true],
+      ['en', 'Mô hình 3D Căn mẫu C9-09 1 PN kiểm tra', '3D Model Model unit C9-09 1 bedroom', false],
+      ['en', 'Mặt bằng Căn mẫu C9-10 1 PN kiểm tra', 'Floor plan Model unit C9-10, 1 bedroom', false],
+      ['en', 'Mặt bằng Căn mẫu C9-11 1 PN kiểm tra', 'Floor plan of model unit C9-11, 1 bedroom', true],
+    ];
+    await prisma.translation.createMany({
+      data: rows.map(([locale, source, text]) => ({ locale, source, text, sourceHash: createHash('sha256').update(source).digest('hex') })),
+    });
+    await prisma.$executeRawUnsafe(readFileSync('prisma/migrations/20261126140000_model_unit_translation_fixes/migration.sql', 'utf8'));
+    for (const [locale, source, , kept] of rows)
+      expect(await prisma.translation.count({ where: { locale, source } })).toBe(kept ? 1 : 0);
+  });
+
   it('thousands of "tỷ" are trillions, in new translations and in stored ones', async () => {
     for (const [locale, rule] of [
       ['en', '10.750 tỷ → 10.75 trillion VND'],
