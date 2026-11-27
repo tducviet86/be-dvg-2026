@@ -516,8 +516,10 @@ describe('properties', () => {
     for (const [source, kept] of rows) expect(await prisma.translation.count({ where: { locale: 'en', source } })).toBe(kept ? 1 : 0);
     // Photos stored under the real code move under the public one (npm run units:public-media).
     const dir = process.env.LOCAL_MEDIA_DIR!;
-    const oldKey = 'can-ho/1905/1905-20261126-abcdef12.webp';
-    mkdirSync(join(dir, 'can-ho/1905'), { recursive: true });
+    // Upper case as typed in Admin ("12B11"), like many stored files.
+    await prisma.property.update({ where: { id: unit.id }, data: { unitCode: '1905B' } });
+    const oldKey = 'can-ho/1905B/1905B-20261126-abcdef12.webp';
+    mkdirSync(join(dir, 'can-ho/1905B'), { recursive: true });
     writeFileSync(join(dir, oldKey), 'photo');
     const photo = await prisma.mediaAsset.create({ data: { storage: 'LOCAL', key: oldKey, url: `http://localhost:4000/media/${oldKey}`, mimeType: 'image/webp', sizeBytes: 5 } });
     await prisma.property.update({ where: { id: unit.id }, data: { coverImageId: photo.id, description: `Ảnh ![phòng](http://localhost:4000/media/${oldKey})` } });

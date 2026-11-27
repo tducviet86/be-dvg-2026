@@ -65,8 +65,9 @@ for (const unit of units) {
   if (!code) continue;
   const folder = slugify(code);
   const real = maskable(unit.unitCode) ? slugify(unit.unitCode) : '';
+  // Keys keep the code as typed ("can-ho/12B11/12B11-…"): compared in lower case.
   const leaks = (key: string) =>
-    (real && new RegExp(`(^|[/-])${real}(?=[/-]|$)`).test(key)) || /(^|[/-])(tang|lau)-\d{1,2}[ab]?(?=[/-]|$)/.test(key);
+    (real && new RegExp(`(^|[/-])${real}(?=[/-]|$)`, 'i').test(key)) || /(^|[/-])(tang|lau)-\d{1,2}[ab]?(?=[/-]|$)/i.test(key);
   for (const media of [unit.coverImage, ...unit.images.map((i) => i.media)]) {
     if (!media || !media.key.startsWith('can-ho/') || !leaks(media.key) || plan.some((p) => p.id === media.id)) continue;
     // Keep the end of the name (date, random part, extension).
